@@ -1,0 +1,2716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Živilė Gym" />
+  <title>Živilė's Workout Tracker</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Lowest-specificity standalone iPhone Safari / GitHub Pages theme tokens (Auto Light & Dark) */
+    :where(:root) {
+      --background: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --foreground: #0f172a;
+      --muted-foreground: #64748b;
+      --primary: #e11d48;
+      --primary-foreground: #ffffff;
+      --accent: #f1f5f9;
+      --success: #16a34a;
+      --warning: #d97706;
+    }
+    @media (prefers-color-scheme: dark) {
+      :where(:root) {
+        --background: #0b1120;
+        --card: #111827;
+        --border: #1f2937;
+        --foreground: #f8fafc;
+        --muted-foreground: #94a3b8;
+        --primary: #f43f5e;
+        --primary-foreground: #ffffff;
+        --accent: #1e293b;
+        --success: #22c55e;
+        --warning: #f59e0b;
+      }
+    }
+
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    button:active { transform: scale(0.97); }
+    .card-expand { transition: border-color 180ms ease, box-shadow 180ms ease; }
+    .safe-top { top: calc(1rem + env(safe-area-inset-top, 0px)); }
+    .safe-bottom-nav { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px)); }
+    .safe-bottom-banner { bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px)); }
+
+    @keyframes popIn {
+      0% { transform: scale(0.75) translateY(14px); opacity: 0; }
+      65% { transform: scale(1.04) translateY(-2px); opacity: 1; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .animate-pop { animation: popIn 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    @keyframes shimmerSweep {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(220%); }
+    }
+    @keyframes readySlideIn {
+      0% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .warmup-bar-fill {
+      position: relative;
+      overflow: hidden;
+      transition: width 620ms cubic-bezier(0.22, 1, 0.36, 1), background-color 420ms ease;
+    }
+    .warmup-bar-fill::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: 45%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+      animation: shimmerSweep 1.6s ease-in-out infinite;
+    }
+    .animate-ready { animation: readySlideIn 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    @keyframes giftShake {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      15% { transform: rotate(-10deg) scale(1.06); }
+      30% { transform: rotate(10deg) scale(1.1); }
+      45% { transform: rotate(-12deg) scale(1.14); }
+      60% { transform: rotate(12deg) scale(1.18); }
+      75% { transform: rotate(-8deg) scale(1.22); }
+      90% { transform: rotate(6deg) scale(1.26); }
+    }
+    @keyframes rewardBurstIn {
+      0% { transform: scale(0.35) rotate(-8deg); opacity: 0; }
+      65% { transform: scale(1.12) rotate(3deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .animate-gift-shake { animation: giftShake 820ms ease-in-out forwards; }
+    .animate-reward-reveal { animation: rewardBurstIn 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased">
+  <div id="app" class="max-w-[430px] mx-auto px-4 pt-4 pb-32" style="padding-top: calc(1rem + env(safe-area-inset-top, 0px));"></div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed safe-top left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-200 max-w-[90vw]">
+    <div class="px-4 py-2 rounded-2xl bg-[var(--foreground)] text-[var(--background)] text-xs font-medium shadow-lg text-center break-words" id="toast-msg"></div>
+  </div>
+
+  <!-- Day-Finish Royal Celebration Overlay (5 seconds) -->
+  <div id="celebration" onclick="dismissCelebration()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs cursor-pointer p-4">
+    <canvas id="celeb-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+    <div id="celeb-card" class="relative z-10 max-w-[336px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] shadow-2xl animate-pop">
+      <div class="p-6 text-center">
+        <div id="celeb-emoji" class="text-5xl mb-2">👑</div>
+        <div id="celeb-badge" class="inline-block px-3 py-0.5 rounded-full text-[11px] font-semibold bg-[var(--primary)]/15 text-[var(--primary)] mb-2">✨ WORKOUT COMPLETE, ŽIVILĖ ✨</div>
+        <h2 id="celeb-title" class="text-xl font-extrabold tracking-tight text-[var(--foreground)]">BOW DOWN TO QUEEN ŽIVILĖ!</h2>
+        <p id="celeb-quote" class="text-sm text-[var(--foreground)]/90 mt-2 leading-relaxed font-medium"></p>
+        <p id="celeb-sub" class="text-xs text-[var(--muted-foreground)] mt-2"></p>
+        <div id="celeb-meta" class="mt-4 pt-3 border-t border-[var(--border)] text-center text-[11px] text-[var(--muted-foreground)]">
+          Tap anywhere to continue
+        </div>
+      </div>
+      <div class="w-full h-1 bg-[var(--background)]">
+        <div id="celeb-timer-bar" class="h-full bg-[var(--primary)]" style="width: 100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finish Early Confirmation Modal -->
+  <div id="confirm-early-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs px-4">
+    <div class="max-w-[340px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] p-5 shadow-2xl space-y-4 animate-pop">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-[var(--warning)]/15 text-[var(--warning)] flex items-center justify-center text-lg shrink-0">⚠️</div>
+        <div>
+          <h3 class="text-base font-bold text-[var(--foreground)]">Finish workout early?</h3>
+          <p id="confirm-early-msg" class="text-xs text-[var(--muted-foreground)] mt-1 leading-relaxed"></p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button onclick="closeConfirmEarly()" class="py-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-semibold text-[var(--foreground)]">
+          Keep Going
+        </button>
+        <button onclick="confirmFinishEarly()" class="py-2.5 rounded-xl bg-[var(--warning)] text-white text-xs font-bold">
+          Yes, Finish Day
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear / Reset Confirmation Modal -->
+  <div id="confirm-action-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs px-4">
+    <div class="max-w-[340px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] p-5 shadow-2xl space-y-4 animate-pop">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-500 flex items-center justify-center text-lg shrink-0">🗑️</div>
+        <div>
+          <h3 id="confirm-action-title" class="text-base font-bold text-[var(--foreground)]">Confirm Action</h3>
+          <p id="confirm-action-msg" class="text-xs text-[var(--muted-foreground)] mt-1 leading-relaxed"></p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button onclick="closeConfirmAction()" class="py-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-semibold text-[var(--foreground)]">
+          Cancel
+        </button>
+        <button id="confirm-action-btn" onclick="runConfirmedAction()" class="py-2.5 rounded-xl bg-rose-500 text-white text-xs font-bold">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Stale-Session Recovery Modal -->
+  <div id="recover-session-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs px-4">
+    <div class="max-w-[340px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] p-5 shadow-2xl space-y-4 animate-pop">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-[var(--primary)]/15 text-[var(--primary)] flex items-center justify-center text-lg shrink-0">⏱</div>
+        <div>
+          <h3 class="text-base font-bold text-[var(--foreground)]">Left your timer running?</h3>
+          <p id="recover-msg" class="text-xs text-[var(--muted-foreground)] mt-1 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-2xl bg-[var(--background)] border border-[var(--border)] flex items-center justify-between">
+        <button onclick="adjustRecoverMin(-5)" class="w-11 h-11 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm font-bold">−5m</button>
+        <div class="text-center">
+          <div id="recover-min-display" class="text-lg font-extrabold font-mono tabular-nums">55 min</div>
+          <div class="text-[11px] text-[var(--muted-foreground)]">Estimated from last activity</div>
+        </div>
+        <button onclick="adjustRecoverMin(5)" class="w-11 h-11 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm font-bold">+5m</button>
+      </div>
+
+      <div class="space-y-2">
+        <button onclick="saveRecoveredSession()" class="w-full py-2.5 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">
+          Save Workout to History
+        </button>
+        <button onclick="discardRecoveredSession()" class="w-full py-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-semibold text-[var(--muted-foreground)]">
+          Discard &amp; Start Fresh
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- All-Exercises-Done Declarative Auto-Prompt Banner -->
+  <div id="all-done-banner" class="fixed safe-bottom-banner left-1/2 -translate-x-1/2 z-40 hidden max-w-[400px] w-[calc(100%-32px)]">
+    <div class="p-3.5 rounded-2xl bg-[var(--card)] border-2 border-[var(--success)] shadow-xl flex items-center justify-between gap-2.5 animate-pop">
+      <div class="min-w-0">
+        <div class="text-xs font-extrabold text-[var(--success)]">👑 All exercises done, Živilė!</div>
+        <div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">Stop your timer &amp; celebrate your session.</div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="finishFromBanner()" class="px-3 py-2 rounded-xl bg-[var(--success)] text-white text-xs font-bold shadow-xs">
+          Finish 🎉
+        </button>
+        <button onclick="dismissAllDoneBanner()" class="w-8 h-8 rounded-lg bg-[var(--background)] border border-[var(--border)] text-xs text-[var(--muted-foreground)]">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mystery Reward Unwrap & Reveal Modal -->
+  <div id="voucher-modal" onclick="closeVoucher()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/65 backdrop-blur-xs px-4 cursor-pointer">
+    <canvas id="reveal-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+    <div onclick="event.stopPropagation()" class="relative z-10 max-w-[336px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border-2 border-amber-400/70 p-6 text-center shadow-2xl animate-pop">
+      <div id="v-unwrap-stage" class="hidden py-8 space-y-3">
+        <div id="v-gift-box" class="text-6xl inline-block">🎁</div>
+        <div class="text-sm font-extrabold text-amber-500 tracking-tight">Unwrapping your surprise, Živilė...</div>
+        <div class="text-xs text-[var(--muted-foreground)]">✨ Get ready ✨</div>
+      </div>
+
+      <div id="v-reveal-stage" class="space-y-3">
+        <div id="v-emoji" class="text-5xl inline-block">🎁</div>
+        <div>
+          <span class="inline-block px-3 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-500">✨ SURPRISE REVEALED ✨</span>
+        </div>
+        <h3 id="v-title" class="text-lg font-extrabold tracking-tight"></h3>
+        <p id="v-desc" class="text-xs text-[var(--muted-foreground)] leading-relaxed"></p>
+        <div class="p-3 rounded-2xl bg-[var(--background)] border border-dashed border-amber-400/60 text-xs">
+          <div class="font-bold text-[var(--foreground)]">Show this screen to your fiancé 💖</div>
+          <div id="v-meta" class="text-[11px] text-[var(--muted-foreground)] mt-0.5"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="closeVoucher()" class="py-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-semibold">Close</button>
+          <button id="v-claim-btn" onclick="markVoucherClaimed()" class="py-2.5 rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 text-stone-950 text-xs font-bold">Mark Claimed ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'gym_tracker_zivile_v6';
+
+    const ROYAL_RANKS = [
+      { minWeeks: 0, title: 'Gym Newcomer', emoji: '🌱', desc: 'Every queen starts with Day 1.' },
+      { minWeeks: 2, title: 'Rising Princess', emoji: '🌸', desc: 'First full Week A + Week B conquered!' },
+      { minWeeks: 5, title: 'Consistency Queen', emoji: '👑', desc: '5 cumulative weeks — habit locked in!' },
+      { minWeeks: 9, title: 'Iron Royalty', emoji: '💎', desc: 'Block 1 complete — real strength unlocked!' },
+      { minWeeks: 14, title: 'Radiant Sovereign', emoji: '🌟', desc: '3.5 months of unstoppable dedication.' },
+      { minWeeks: 20, title: 'Unstoppable Empress', emoji: '🏆', desc: '5 months of royalty — absolute legend!' }
+    ];
+
+    const MYSTERY_REWARDS = [
+      { id: 'r1', week: 2, hiddenLabel: 'Mystery Surprise #1', emoji: '☕', title: 'Favorite Coffee / Matcha Treat', desc: 'First 2 cumulative weeks (6 workouts) complete! Any specialty coffee, matcha, or pastry on me.' },
+      { id: 'r2', week: 5, hiddenLabel: 'Mystery Surprise #2', emoji: '💐', title: 'Flowers & Home Massage Night', desc: '5-week Consistency Queen! Fresh flowers + a relaxing back & shoulder massage.' },
+      { id: 'r3', week: 9, hiddenLabel: 'Mystery Surprise #3', emoji: '🍽️', title: 'Queen’s Choice Dinner Date', desc: '9 weeks strong (Block 1 complete)! You pick the restaurant, zero dishes, dressed up like royalty.' },
+      { id: 'r4', week: 14, hiddenLabel: 'Mystery Surprise #4', emoji: '🛍️', title: 'New Gym Outfit / Activewear', desc: '14 cumulative weeks of showing up! Pick a new gym set or leggings to celebrate your progress.' },
+      { id: 'r5', week: 20, hiddenLabel: 'Grand Empress Surprise', emoji: '🧖‍♀️', title: 'Full Spa Day / Weekend Getaway', desc: '20-week Unstoppable Empress (60 workouts)! A full pampering spa day or mini getaway together.' }
+    ];
+
+    const ROTATION_LABELS = [
+      { week: 'Week A', slot: '1/3', day: 'lower' },
+      { week: 'Week A', slot: '2/3', day: 'upper' },
+      { week: 'Week A', slot: '3/3', day: 'lower' },
+      { week: 'Week B', slot: '1/3', day: 'upper' },
+      { week: 'Week B', slot: '2/3', day: 'lower' },
+      { week: 'Week B', slot: '3/3', day: 'upper' }
+    ];
+
+    const DEFAULT_DATA = {
+      nextDay: 'lower',
+      rotationIndex: 0,
+      activeDay: 'lower',
+      activeTab: 'workout',
+      expandedId: 'lower-1',
+      warmupOpen: false,
+      warmupChecks: { cardio: false, mobility: false, ramp: false },
+      weightStep: 2.5,
+      lastAnimIndex: -1,
+      totalWorkouts: 0,
+      revealedRewardIds: [],
+      claimedRewardIds: [],
+      timerRunning: false,
+      timerStartedAt: null,
+      timerElapsedSec: 0,
+      sessionStartedAt: null,
+      sessionDayKey: null,
+      lastActivityAt: null,
+      bannerDismissedDay: null,
+      historyChartMode: 'milestones',
+      workouts: {
+        lower: {
+          title: 'Lower Day',
+          flow: 'Zone 1: Free Weights → Zone 2: Machines & Cables',
+          zones: [
+            { id: 'lz1', name: 'Zone 1: Free Weights' },
+            { id: 'lz2', name: 'Zone 2: Machines & Cables' }
+          ],
+          exercises: [
+            {
+              id: 'lower-1', zone: 'lz1', name: 'Smith Machine Squat', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
+              cue: 'Warm-up: 1-2 light ramp-up sets. Feet slightly forward, hips back, control descent.',
+              rampUp: true, bump: 5,
+              prevWeight: 15, bestWeight: 15, weight: 15, sets: [null, null, null], note: 'Smith machine', completed: false
+            },
+            {
+              id: 'lower-2', zone: 'lz1', name: 'Romanian Deadlift', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
+              cue: 'Warm-up: 1 light warm-up set. Soft knees, hinge hips back, maintain neutral spine.',
+              rampUp: true, bump: 5,
+              prevWeight: 10, bestWeight: 10, weight: 10, sets: [null, null, null], note: 'Laisva stanga', completed: false
+            },
+            {
+              id: 'lower-3', zone: 'lz2', name: 'Hip Thrust Machine', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '90 sec',
+              cue: 'Pad at hip crease, shins vertical at top lockout, hard 1-sec glute squeeze.',
+              rampUp: false, bump: 5,
+              prevWeight: null, bestWeight: 30, weight: 30, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-4', zone: 'lz2', name: 'Single-Leg Press', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10 / leg', topReps: 10, unit: 'reps', rest: '90 sec',
+              cue: 'Replaces lunges. Start with weaker leg, match reps on stronger leg, mid-platform foot.',
+              rampUp: false, bump: 5,
+              prevWeight: 20, bestWeight: 20, weight: 20, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-5', zone: 'lz2', name: 'Seated Hamstring Curl', type: 'Core Lift',
+              targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
+              cue: 'Thigh pad firmly clamped, dorsiflex toes, 2-sec eccentric return.',
+              rampUp: false, bump: 2.5,
+              prevWeight: null, bestWeight: 30, weight: 30, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-6', zone: 'lz2', name: 'Knee Extension', type: 'Core Lift',
+              targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
+              cue: 'Align knee joint with machine pivot, controlled lockout, avoid hip lift.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 20, bestWeight: 20, weight: 20, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-7', zone: 'lz2', name: 'Calf Raises (Machine)', type: 'Core Lift',
+              targetSets: 3, targetReps: '10 - 15', topReps: 15, unit: 'reps', rest: '60 sec',
+              cue: 'Full heel drop for deep stretch, pause 1 sec at bottom, explosive drive.',
+              rampUp: false, bump: 5,
+              prevWeight: null, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-8', zone: 'lz2', name: 'Back Extension', type: 'Optional Lift',
+              targetSets: 2, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60 sec',
+              cue: 'Optional for Short-on-Time. Slow controlled tempo, stop at straight neutral line.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 10, bestWeight: 10, weight: 10, sets: [null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-9', zone: 'lz2', name: 'Cable Crunches', type: 'Ab Finisher',
+              targetSets: 3, targetReps: '10 - 15', topReps: 15, unit: 'reps', rest: '45-60 sec',
+              cue: 'Lower ab finisher. Hips locked high, flex spine to pull elbows to thighs.',
+              rampUp: false, bump: 2.5,
+              prevWeight: null, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'lower-10', zone: 'lz2', name: 'Standing Plate Marches / Planks', type: 'Ab Finisher',
+              targetSets: 3, targetReps: '30 - 45 sec', topReps: 45, unit: 'sec', rest: '45-60 sec',
+              cue: 'Lower ab finisher. High knee drive, tight core brace, avoid lateral torso swaying.',
+              rampUp: false, bump: 2.5,
+              prevWeight: null, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+            }
+          ]
+        },
+        upper: {
+          title: 'Upper Day',
+          flow: 'Zone 1: Machines & Cables → Zone 2: Free Weights & Mat',
+          zones: [
+            { id: 'uz1', name: 'Zone 1: Machines & Cables' },
+            { id: 'uz2', name: 'Zone 2: Free Weights & Mat' }
+          ],
+          exercises: [
+            {
+              id: 'upper-1', zone: 'uz1', name: 'Lat Pulldown', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
+              cue: 'Warm-up: 1-2 light ramp-up sets. Slight lean back, drive elbows down to ribs, squeeze lats.',
+              rampUp: true, bump: 5,
+              prevWeight: 120, bestWeight: 120, weight: 120, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-2', zone: 'uz1', name: 'Seated Machine Chest Press', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
+              cue: 'Warm-up: 1-2 light ramp-up sets. Handles at mid-chest height, retract scapulae, drive forward.',
+              rampUp: true, bump: 5,
+              prevWeight: 130, bestWeight: 130, weight: 130, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-3', zone: 'uz1', name: 'Cable Seated Row', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '90 sec',
+              cue: 'Neutral V-bar grip, chest tall, pull handles to navel, 1-sec peak contraction.',
+              rampUp: false, bump: 5,
+              prevWeight: 110, bestWeight: 110, weight: 110, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-4', zone: 'uz1', name: 'Cable Lateral Raise', type: 'Core Lift',
+              targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
+              cue: 'Set pulley at wrist height, lead with elbows, slight lean forward, control negative.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 15, bestWeight: 15, weight: 15, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-5', zone: 'uz1', name: 'Triceps Cable Pushdown', type: 'Core Lift',
+              targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
+              cue: 'Rope attachment, flare ends at lockout, keep upper arms locked against ribs.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 50, bestWeight: 50, weight: 50, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-6', zone: 'uz1', name: 'Cable Biceps Curl', type: 'Core Lift',
+              targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
+              cue: 'EZ or straight bar attachment, curl smoothly, full stretch at bottom without swinging.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 45, bestWeight: 45, weight: 45, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-7', zone: 'uz2', name: 'Incline Dumbbell Bench Press', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
+              cue: '30-degree incline bench, elbows flared 45 degrees, deep chest stretch at bottom.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 50, bestWeight: 50, weight: 50, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-8', zone: 'uz2', name: 'Single-Arm Dumbbell Row', type: 'Core Lift',
+              targetSets: 3, targetReps: '8 - 10 / arm', topReps: 10, unit: 'reps', rest: '90 sec',
+              cue: 'Flat bench support, pull dumbbell to hip pocket, resist torso rotation.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 55, bestWeight: 55, weight: 55, sets: [null, null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-9', zone: 'uz2', name: 'Dumbbell Rear Delt Fly', type: 'Optional Lift',
+              targetSets: 2, targetReps: '12 - 15', topReps: 15, unit: 'reps', rest: '60 sec',
+              cue: 'Optional for Short-on-Time. Chest-supported incline bench, sweep pinkies upward.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 15, bestWeight: 15, weight: 15, sets: [null, null], note: '', completed: false
+            },
+            {
+              id: 'upper-10', zone: 'uz2', name: 'Hanging Knee Raises / Decline Crunches', type: 'Ab Finisher',
+              targetSets: 3, targetReps: '10 - 15', topReps: 15, unit: 'reps', rest: '45-60 sec',
+              cue: 'Upper core finisher. Roll pelvis upward, strict tempo, avoid swinging or momentum.',
+              rampUp: false, bump: 2.5,
+              prevWeight: 0, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+            }
+          ]
+        }
+      },
+      weeklyMilestones: [],
+      history: []
+    };
+
+    // 32 Distinct Queen & Princess Motivating Animations for Živilė
+    const CELEBRATIONS = [
+      { id: 'confetti', emoji: '👑', title: 'BOW DOWN TO QUEEN ŽIVILĖ!', sub: 'Another workout conquered with grace, beauty, and pure power.' },
+      { id: 'fireworks', emoji: '🎆', title: 'YOU LIGHT UP THE ROOM, ŽIVILĖ!', sub: 'Stronger, brighter, and more unstoppable with every session.' },
+      { id: 'crown', emoji: '👑', title: 'THE CROWN STAYS ON, ŽIVILĖ!', sub: 'Never forget how strong, radiant, and incredible you are.' },
+      { id: 'roses', emoji: '🌹', title: 'STRENGTH IN FULL BLOOM!', sub: 'Every single rep is a love letter to your future self, Živilė.' },
+      { id: 'diamonds', emoji: '💎', title: 'RARE DIAMOND ENERGY!', sub: 'Polished, sparkling, and stronger than yesterday, Princess.' },
+      { id: 'fairydust', emoji: '✨', title: 'PURE PRINCESS MAGIC!', sub: 'Živilė showed up, glowed up, and completely owned the gym.' },
+      { id: 'shootingstars', emoji: '🌠', title: 'WRITTEN IN THE STARS!', sub: 'Your dedication is literally glowing today, Princess Živilė.' },
+      { id: 'butterflies', emoji: '🦋', title: 'GLOWING UP EVERY DAY!', sub: 'Watch how effortlessly you keep leveling up week after week, Živilė.' },
+      { id: 'ribbons', emoji: '🎀', title: 'WRAPPED IN VICTORY!', sub: 'Showing up like royalty — proud of you every single time, Živilė.' },
+      { id: 'hearts', emoji: '💖', title: 'SO PROUD OF YOU, ŽIVILĖ!', sub: 'Your fiancé is cheering the loudest for you right now.' },
+      { id: 'aurora', emoji: '🌌', title: 'DREAMER & REAL DOER!', sub: 'Elegance, grace, and serious gym strength all in one, Queen Živilė.' },
+      { id: 'tiara', emoji: '🌟', title: 'MAIN CHARACTER ROYALTY!', sub: 'You didn’t just finish, Živilė — you made it look effortless.' },
+      { id: 'champagne', emoji: '🥂', title: 'CHEERS TO YOU, QUEEN ŽIVILĖ!', sub: 'Time to rest, hydrate, and celebrate how amazing you did.' },
+      { id: 'spotlight', emoji: '💫', title: 'ALL EYES ON HER HIGHNESS!', sub: 'Graceful form, unstoppable mindset, total queen vibes, Živilė.' },
+      { id: 'fireflies', emoji: '🧚', title: 'GLOWING FROM WITHIN!', sub: 'That post-workout radiance looks so good on you, Živilė.' },
+      { id: 'heartrings', emoji: '💗', title: 'HEART OF A CHAMPION!', sub: 'Strong body, warm heart, pure queen energy — that’s you, Živilė.' },
+      { id: 'starlight', emoji: '⭐', title: 'SHINING BRIGHTER, ŽIVILĖ!', sub: 'Every session brings you closer to every goal you set.' },
+      { id: 'pearls', emoji: '🤍', title: 'TIMELESS & UNSTOPPABLE!', sub: 'Elegance meets strength — and Živilė wins every single time.' },
+      { id: 'balloons', emoji: '🎈', title: 'CELEBRATE THIS WIN, ŽIVILĖ!', sub: 'You earned every bit of pride you’re feeling right now.' },
+      { id: 'prism', emoji: '🔮', title: 'RADIANT QUEEN VIBES!', sub: 'Unmatched consistency and an unstoppable glow, Princess Živilė.' },
+      { id: 'blossoms', emoji: '🌸', title: 'SOFT HEART, STRONG LIFTS!', sub: 'Blooming stronger and more confident with every workout, Živilė.' },
+      { id: 'gala', emoji: '🏆', title: 'QUEEN OF THE GYM, ŽIVILĖ!', sub: 'Session complete — now go treat yourself like royalty!' },
+      { id: 'lotus', emoji: '🪷', title: 'POISED & POWERFUL, ŽIVILĖ!', sub: 'Calm focus, strong body, and effortless royal energy.' },
+      { id: 'spiral', emoji: '🌀', title: 'UNSTOPPABLE MOMENTUM!', sub: 'Every workout spins you closer to your strongest self, Princess.' },
+      { id: 'velvet', emoji: '🌺', title: 'VELVET & IRON, QUEEN ŽIVILĖ!', sub: 'Delicate on the outside, seriously strong underneath.' },
+      { id: 'rainbowhalo', emoji: '🌈', title: 'PURE MAGIC AFTER EVERY SET!', sub: 'You bring sunshine and strength wherever you go, Živilė.' },
+      { id: 'swans', emoji: '🦢', title: 'GRACEFUL & FIERCE!', sub: 'Moving through the gym with total poise and power, Živilė.' },
+      { id: 'crystalglow', emoji: '💍', title: 'MY FAVORITE SUPERSTAR!', sub: 'So lucky to cheer for a fiancée this dedicated and strong.' },
+      { id: 'sunsetwaves', emoji: '🌅', title: 'GOLDEN HOUR QUEEN!', sub: 'You showed up for yourself today, and it shows, Živilė.' },
+      { id: 'fountain', emoji: '⛲', title: 'OVERFLOWING WITH STRENGTH!', sub: 'Another session nailed — keep shining bright, Princess Živilė.' },
+      { id: 'comets', emoji: '☄️', title: 'OUT OF THIS WORLD, ŽIVILĖ!', sub: 'Your consistency is genuinely inspiring — keep going!' },
+      { id: 'whirlwind', emoji: '💃', title: 'OWNED EVERY SINGLE MINUTE!', sub: 'Walk out of the gym with your head high and crown shining, Živilė.' }
+    ];
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function sanitizeState(raw) {
+      const base = structuredClone(DEFAULT_DATA);
+      if (!raw || typeof raw !== 'object') return base;
+
+      base.nextDay = raw.nextDay === 'upper' ? 'upper' : 'lower';
+      base.activeDay = raw.activeDay === 'upper' ? 'upper' : 'lower';
+      base.rotationIndex = Number.isInteger(raw.rotationIndex) && raw.rotationIndex >= 0 && raw.rotationIndex < ROTATION_LABELS.length
+        ? raw.rotationIndex : 0;
+      base.activeTab = ['workout', 'history', 'crown', 'rules'].includes(raw.activeTab) ? raw.activeTab : 'workout';
+      base.expandedId = typeof raw.expandedId === 'string' || raw.expandedId === null ? raw.expandedId : base.expandedId;
+      base.warmupOpen = Boolean(raw.warmupOpen);
+      if (raw.warmupChecks && typeof raw.warmupChecks === 'object') {
+        base.warmupChecks = {
+          cardio: Boolean(raw.warmupChecks.cardio),
+          mobility: Boolean(raw.warmupChecks.mobility),
+          ramp: Boolean(raw.warmupChecks.ramp)
+        };
+      }
+      base.weightStep = raw.weightStep === 5 ? 5 : 2.5;
+      base.lastAnimIndex = Number.isInteger(raw.lastAnimIndex) ? raw.lastAnimIndex : -1;
+      base.totalWorkouts = Number.isFinite(raw.totalWorkouts) && raw.totalWorkouts >= 0 ? Math.floor(raw.totalWorkouts) : 0;
+      base.revealedRewardIds = Array.isArray(raw.revealedRewardIds) ? raw.revealedRewardIds.filter(x => typeof x === 'string') : [];
+      base.claimedRewardIds = Array.isArray(raw.claimedRewardIds) ? raw.claimedRewardIds.filter(x => typeof x === 'string') : [];
+      base.timerRunning = Boolean(raw.timerRunning);
+      base.timerStartedAt = Number.isFinite(raw.timerStartedAt) ? raw.timerStartedAt : null;
+      base.timerElapsedSec = Number.isFinite(raw.timerElapsedSec) && raw.timerElapsedSec >= 0 ? raw.timerElapsedSec : 0;
+      base.sessionStartedAt = Number.isFinite(raw.sessionStartedAt) ? raw.sessionStartedAt : null;
+      base.sessionDayKey = raw.sessionDayKey === 'upper' || raw.sessionDayKey === 'lower' ? raw.sessionDayKey : null;
+      base.lastActivityAt = Number.isFinite(raw.lastActivityAt) ? raw.lastActivityAt : null;
+      base.bannerDismissedDay = raw.bannerDismissedDay === 'upper' || raw.bannerDismissedDay === 'lower' ? raw.bannerDismissedDay : null;
+      base.historyChartMode = raw.historyChartMode === 'duration' ? 'duration' : 'milestones';
+      base.weeklyMilestones = Array.isArray(raw.weeklyMilestones)
+        ? raw.weeklyMilestones.filter(p => p && typeof p === 'object' && typeof p.label === 'string')
+        : [];
+      base.history = Array.isArray(raw.history)
+        ? raw.history.filter(h => h && typeof h === 'object' && Array.isArray(h.exercises))
+        : [];
+
+      if (raw.workouts && typeof raw.workouts === 'object') {
+        ['lower', 'upper'].forEach(dayKey => {
+          const savedDay = raw.workouts[dayKey];
+          if (!savedDay || !Array.isArray(savedDay.exercises)) return;
+          base.workouts[dayKey].exercises = base.workouts[dayKey].exercises.map(defEx => {
+            const match = savedDay.exercises.find(e => e && e.id === defEx.id);
+            if (!match) return defEx;
+            const sets = Array.isArray(match.sets)
+              ? Array.from({ length: defEx.targetSets }, (_, i) => (Number.isFinite(match.sets[i]) && match.sets[i] > 0 ? match.sets[i] : null))
+              : defEx.sets;
+            return {
+              ...defEx,
+              weight: Number.isFinite(match.weight) && match.weight >= 0 ? match.weight : defEx.weight,
+              prevWeight: Number.isFinite(match.prevWeight) ? match.prevWeight : (match.prevWeight === null ? null : defEx.prevWeight),
+              bestWeight: Number.isFinite(match.bestWeight) && match.bestWeight >= 0 ? match.bestWeight : defEx.bestWeight,
+              earnedBump: Boolean(match.earnedBump),
+              completed: Boolean(match.completed),
+              note: typeof match.note === 'string' ? match.note : defEx.note,
+              sets
+            };
+          });
+        });
+      }
+      return base;
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return structuredClone(DEFAULT_DATA);
+        return sanitizeState(JSON.parse(raw));
+      } catch {
+        return structuredClone(DEFAULT_DATA);
+      }
+    }
+
+    let state = loadState();
+    let expandedHistoryId = null;
+
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      el.classList.remove('opacity-0');
+      el.classList.add('opacity-100');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.remove('opacity-100');
+        el.classList.add('opacity-0');
+      }, 2400);
+    }
+
+    function getStatus(ex) {
+      const logged = ex.sets.filter(v => v !== null && v > 0);
+      if (logged.length === 0) return 'pending';
+      if (logged.length < ex.targetSets) return 'in-progress';
+      const allHitTop = ex.sets.every(v => v !== null && v >= ex.topReps);
+      return allHitTop ? 'increase' : 'maintain';
+    }
+
+    function isPR(ex) {
+      const hasLogged = ex.sets.some(v => v !== null && v > 0);
+      if (!hasLogged) return false;
+      return ex.weight > (ex.bestWeight || 0);
+    }
+
+    function roundToHalf(n) { return Math.round(n * 2) / 2; }
+    function fmtWeight(w) {
+      if (w === null || w === undefined) return '—';
+      if (w === 0) return 'BW / 0 kg';
+      return `${w} kg`;
+    }
+
+    function getStats(dayKey) {
+      const exs = state.workouts[dayKey].exercises;
+      let totalSets = 0, doneSets = 0, readyCount = 0, prCount = 0, doneExercises = 0;
+      exs.forEach(ex => {
+        totalSets += ex.targetSets;
+        doneSets += ex.sets.filter(v => v !== null && v > 0).length;
+        if (getStatus(ex) === 'increase') readyCount++;
+        if (isPR(ex)) prCount++;
+        if (ex.completed) doneExercises++;
+      });
+      const totalExercises = exs.length;
+      const pct = totalExercises ? Math.round((doneExercises / totalExercises) * 100) : 0;
+      return { totalSets, doneSets, readyCount, prCount, doneExercises, totalExercises, pct };
+    }
+
+    // ================= ACTIONS =================
+    let shouldAnimateChart = true;
+
+    function setTab(tab) {
+      if (tab === 'history' && state.activeTab !== 'history') shouldAnimateChart = true;
+      state.activeTab = tab;
+      saveState();
+      render();
+    }
+
+    function setDay(day) {
+      state.activeDay = day;
+      state.expandedId = state.workouts[day].exercises[0]?.id || null;
+      saveState();
+      render();
+    }
+
+    function toggleExpand(id) {
+      state.expandedId = state.expandedId === id ? null : id;
+      saveState();
+      render();
+    }
+
+    function toggleWarmup() {
+      state.warmupOpen = !state.warmupOpen;
+      saveState();
+      render();
+    }
+
+    let warmupAnimFrom = null;
+    let warmupJustFinished = false;
+
+    function touchActivity() {
+      if (isSessionStarted()) state.lastActivityAt = Date.now();
+    }
+
+    function toggleWarmupCheck(key) {
+      if (!requireSessionStarted()) return;
+      touchActivity();
+      const prevCount = Object.values(state.warmupChecks).filter(Boolean).length;
+      warmupAnimFrom = Math.round((prevCount / 3) * 100);
+      state.warmupChecks[key] = !state.warmupChecks[key];
+      const nextCount = Object.values(state.warmupChecks).filter(Boolean).length;
+      warmupJustFinished = prevCount < 3 && nextCount === 3;
+      saveState();
+      render();
+      if (warmupJustFinished) {
+        showToast('🔥 Warm-up complete — ready to start your working sets!');
+      }
+    }
+
+    function startWorkingSets() {
+      state.warmupOpen = false;
+      const exs = state.workouts[state.activeDay].exercises;
+      const firstUnfinished = exs.find(e => !e.completed) || exs[0];
+      if (firstUnfinished) state.expandedId = firstUnfinished.id;
+      saveState();
+      render();
+      requestAnimationFrame(() => {
+        const target = firstUnfinished && document.getElementById('card-' + firstUnfinished.id);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+
+    function setWeightStep(step) {
+      state.weightStep = step;
+      saveState();
+      render();
+    }
+
+    function adjustWeight(dayKey, exId, delta) {
+      const ex = state.workouts[dayKey].exercises.find(e => e.id === exId);
+      if (!ex) return;
+      ex.weight = Math.max(0, roundToHalf((ex.weight || 0) + delta));
+      if (ex.earnedBump && ex.weight >= (ex.prevWeight || 0) + ex.bump) {
+        ex.earnedBump = false;
+      }
+      touchActivity();
+      saveState();
+      render();
+    }
+
+    function applyBump(dayKey, exId) {
+      if (!requireSessionStarted()) return;
+      const ex = state.workouts[dayKey].exercises.find(e => e.id === exId);
+      if (!ex) return;
+      ex.weight = roundToHalf((ex.weight || 0) + ex.bump);
+      ex.earnedBump = false;
+      touchActivity();
+      saveState();
+      render();
+      showToast(`${ex.name} → ${ex.weight} kg (+${ex.bump} kg) 👑`);
+    }
+
+    function tapSet(dayKey, exId, setIdx) {
+      if (!requireSessionStarted()) return;
+      const ex = state.workouts[dayKey].exercises.find(e => e.id === exId);
+      if (!ex) return;
+      const step = ex.unit === 'sec' ? 5 : 1;
+      const cur = ex.sets[setIdx];
+      ex.sets[setIdx] = (cur === null || cur === 0) ? ex.topReps : cur + step;
+      touchActivity();
+      saveState();
+      render();
+    }
+
+    function adjustSet(dayKey, exId, setIdx, delta, e) {
+      if (e) e.stopPropagation();
+      if (!requireSessionStarted()) return;
+      const ex = state.workouts[dayKey].exercises.find(x => x.id === exId);
+      if (!ex) return;
+      const step = ex.unit === 'sec' ? 5 : 1;
+      const cur = ex.sets[setIdx];
+      if (cur === null || cur === 0) {
+        ex.sets[setIdx] = delta > 0 ? ex.topReps : Math.max(step, ex.topReps - step);
+      } else {
+        const next = cur + delta;
+        ex.sets[setIdx] = next <= 0 ? null : next;
+      }
+      touchActivity();
+      saveState();
+      render();
+    }
+
+    function updateNote(dayKey, exId, val) {
+      const ex = state.workouts[dayKey].exercises.find(x => x.id === exId);
+      if (!ex) return;
+      ex.note = val;
+      touchActivity();
+      saveState();
+    }
+
+    function dismissAllDoneBanner() {
+      state.bannerDismissedDay = state.activeDay;
+      saveState();
+      syncAllDoneBanner();
+    }
+
+    function syncAllDoneBanner() {
+      const el = document.getElementById('all-done-banner');
+      if (!el) return;
+      const stats = getStats(state.activeDay);
+      const shouldShow =
+        state.activeTab === 'workout' &&
+        isSessionStarted() &&
+        stats.totalExercises > 0 &&
+        stats.doneExercises === stats.totalExercises &&
+        state.bannerDismissedDay !== state.activeDay;
+      el.classList.toggle('hidden', !shouldShow);
+    }
+
+    function finishFromBanner() {
+      finishWorkout(true);
+    }
+
+    function toggleCompleteExercise(dayKey, exId, e) {
+      if (e) e.stopPropagation();
+      if (!requireSessionStarted()) return;
+      const exs = state.workouts[dayKey].exercises;
+      const idx = exs.findIndex(x => x.id === exId);
+      if (idx === -1) return;
+      const ex = exs[idx];
+      ex.completed = !ex.completed;
+      touchActivity();
+
+      let scrollTargetId = null;
+      if (ex.completed) {
+        const nextUnfinished = exs.slice(idx + 1).find(x => !x.completed) || exs.find(x => !x.completed);
+        state.expandedId = nextUnfinished ? nextUnfinished.id : null;
+        if (!nextUnfinished) {
+          state.bannerDismissedDay = null;
+        } else {
+          scrollTargetId = nextUnfinished.id;
+          showToast(`✓ ${ex.name} completed!`);
+        }
+      } else {
+        if (state.bannerDismissedDay === dayKey) state.bannerDismissedDay = null;
+      }
+      saveState();
+      render();
+      if (scrollTargetId) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById('card-' + scrollTargetId);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      }
+    }
+
+    // Confirmation modal for Clear & Reset
+    let pendingConfirmType = null;
+    function requestClearSession() {
+      const stats = getStats(state.activeDay);
+      const hasProgress = isSessionStarted() || stats.doneSets > 0 || stats.doneExercises > 0 || Object.values(state.warmupChecks).some(Boolean);
+      if (!hasProgress) {
+        showToast('Session is already clean');
+        return;
+      }
+      pendingConfirmType = 'clear';
+      document.getElementById('confirm-action-title').textContent = 'Clear current session?';
+      document.getElementById('confirm-action-msg').textContent = `This will reset today's logged reps, completed checkmarks, warm-up steps, and active timer for ${state.workouts[state.activeDay].title}.`;
+      document.getElementById('confirm-action-btn').textContent = 'Yes, Clear';
+      const modal = document.getElementById('confirm-action-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function requestResetAllData() {
+      pendingConfirmType = 'reset';
+      document.getElementById('confirm-action-title').textContent = 'Reset all workout data?';
+      document.getElementById('confirm-action-msg').textContent = 'This will erase all saved History sessions, Royal Crown progress, and Mystery Reward states back to Day 1.';
+      document.getElementById('confirm-action-btn').textContent = 'Reset Everything';
+      const modal = document.getElementById('confirm-action-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfirmAction() {
+      pendingConfirmType = null;
+      const modal = document.getElementById('confirm-action-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function runConfirmedAction() {
+      const type = pendingConfirmType;
+      closeConfirmAction();
+      if (type === 'clear') clearRepsForToday();
+      else if (type === 'reset') resetDemoData();
+    }
+
+    function clearRepsForToday() {
+      state.workouts[state.activeDay].exercises.forEach(ex => {
+        ex.sets = ex.sets.map(() => null);
+        ex.completed = false;
+      });
+      state.warmupChecks = { cardio: false, mobility: false, ramp: false };
+      state.bannerDismissedDay = null;
+      stopAndResetTimer();
+      saveState();
+      render();
+      showToast('Session cleared — ready to start fresh');
+    }
+
+    function pickNextAnimation() {
+      const candidates = CELEBRATIONS.map((_, i) => i).filter(i => i !== state.lastAnimIndex);
+      const chosenIdx = candidates[Math.floor(Math.random() * candidates.length)];
+      state.lastAnimIndex = chosenIdx;
+      saveState();
+      return { idx: chosenIdx, anim: CELEBRATIONS[chosenIdx] };
+    }
+
+    // ================= WORKOUT SESSION TIMER =================
+    function isSessionStarted() {
+      return Boolean(state.timerRunning || state.sessionStartedAt || (state.timerElapsedSec || 0) > 0);
+    }
+
+    function requireSessionStarted() {
+      if (isSessionStarted()) return true;
+      showToast('⚡ Tap "Start the Exercise" first!');
+      const card = document.getElementById('start-exercise-card');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('ring-2', 'ring-amber-400');
+        setTimeout(() => card.classList.remove('ring-2', 'ring-amber-400'), 900);
+      }
+      return false;
+    }
+
+    function getElapsedSecondsFloat() {
+      let sec = state.timerElapsedSec || 0;
+      if (state.timerRunning && state.timerStartedAt) {
+        sec += (Date.now() - state.timerStartedAt) / 1000;
+      }
+      return Math.max(0, sec);
+    }
+
+    function getElapsedSeconds() {
+      return Math.floor(getElapsedSecondsFloat());
+    }
+
+    function formatTimer(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function toggleWorkoutTimer() {
+      if (state.timerRunning) {
+        state.timerElapsedSec = getElapsedSecondsFloat();
+        state.timerRunning = false;
+        state.timerStartedAt = null;
+        showToast(`Timer paused at ${formatTimer(Math.floor(state.timerElapsedSec))}`);
+      } else {
+        const now = Date.now();
+        if (!state.sessionStartedAt) {
+          state.sessionStartedAt = now;
+          state.sessionDayKey = state.activeDay;
+        }
+        state.lastActivityAt = now;
+        state.timerRunning = true;
+        state.timerStartedAt = now;
+        showToast('Workout timer started ⚡');
+      }
+      saveState();
+      render();
+    }
+
+    function stopAndResetTimer() {
+      const totalSec = getElapsedSecondsFloat();
+      state.timerRunning = false;
+      state.timerStartedAt = null;
+      state.timerElapsedSec = 0;
+      state.sessionStartedAt = null;
+      state.sessionDayKey = null;
+      state.lastActivityAt = null;
+      state.bannerDismissedDay = null;
+      return totalSec;
+    }
+
+    // Smart Stale-Session Recovery (> 2.5 hours running OR > 2.5 hours idle paused OR different calendar day)
+    let recoverEstMin = 55;
+
+    function checkStaleSession() {
+      if (!isSessionStarted() || !state.sessionStartedAt) return;
+      const modal = document.getElementById('recover-session-modal');
+      if (modal && !modal.classList.contains('hidden')) return;
+
+      const elapsedSec = getElapsedSecondsFloat();
+      const idleSec = state.lastActivityAt ? (Date.now() - state.lastActivityAt) / 1000 : elapsedSec;
+      const startDay = new Date(state.sessionStartedAt).toDateString();
+      const today = new Date().toDateString();
+      const isStale = elapsedSec >= 9000 || idleSec >= 9000 || startDay !== today;
+      if (!isStale) return;
+
+      const wasRunning = state.timerRunning;
+      if (state.timerRunning) {
+        state.timerElapsedSec = elapsedSec;
+        state.timerRunning = false;
+        state.timerStartedAt = null;
+        saveState();
+        render();
+      }
+
+      const activeEnd = state.lastActivityAt && state.lastActivityAt > state.sessionStartedAt
+        ? state.lastActivityAt
+        : state.sessionStartedAt + 55 * 60000;
+      const rawMin = Math.round((activeEnd - state.sessionStartedAt) / 60000);
+      recoverEstMin = Math.max(10, Math.min(180, rawMin < 5 ? 55 : rawMin));
+
+      const targetDayKey = state.sessionDayKey || state.activeDay;
+      const workoutTitle = state.workouts[targetDayKey]?.title || 'Workout';
+      const origDate = new Date(state.sessionStartedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      document.getElementById('recover-msg').textContent =
+        `Your ${workoutTitle} from ${origDate} was left ${wasRunning ? 'running' : 'paused'}. Save it using your last logged activity or adjust the time below:`;
+      document.getElementById('recover-min-display').textContent = `${recoverEstMin} min`;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function adjustRecoverMin(delta) {
+      recoverEstMin = Math.max(5, Math.min(240, recoverEstMin + delta));
+      document.getElementById('recover-min-display').textContent = `${recoverEstMin} min`;
+    }
+
+    function closeRecoverModal() {
+      const modal = document.getElementById('recover-session-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveRecoveredSession() {
+      const origTimestamp = state.sessionStartedAt || Date.now();
+      const targetDayKey = state.sessionDayKey || state.activeDay;
+      closeRecoverModal();
+      finishWorkout(true, recoverEstMin, origTimestamp, targetDayKey);
+    }
+
+    function discardRecoveredSession() {
+      const targetDayKey = state.sessionDayKey || state.activeDay;
+      closeRecoverModal();
+      state.activeDay = targetDayKey;
+      clearRepsForToday();
+      showToast('Previous session discarded — ready for a fresh workout');
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const el = document.getElementById('timer-display');
+        if (el && state.timerRunning) el.textContent = formatTimer(getElapsedSeconds());
+        checkStaleSession();
+      }
+    });
+
+    setInterval(() => {
+      if (!state.timerRunning) return;
+      const el = document.getElementById('timer-display');
+      if (el) el.textContent = formatTimer(getElapsedSeconds());
+    }, 1000);
+
+    function setHistoryChartMode(mode) {
+      shouldAnimateChart = true;
+      state.historyChartMode = mode;
+      saveState();
+      render();
+    }
+
+    function closeConfirmEarly() {
+      const modal = document.getElementById('confirm-early-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function confirmFinishEarly() {
+      closeConfirmEarly();
+      finishWorkout(true);
+    }
+
+    function finishWorkout(force = false, overrideDurationMin = null, overrideTimestamp = null, overrideDayKey = null) {
+      if (!force && !requireSessionStarted()) return;
+      const dayKey = overrideDayKey || state.activeDay;
+      const workout = state.workouts[dayKey];
+      const stats = getStats(dayKey);
+      const isPartial = stats.doneExercises < stats.totalExercises;
+
+      if (isPartial && !force) {
+        const remaining = stats.totalExercises - stats.doneExercises;
+        document.getElementById('confirm-early-msg').textContent =
+          `You've completed ${stats.doneExercises} of ${stats.totalExercises} exercises (${remaining} remaining). Are you sure you want to finish ${workout.title} now?`;
+        const modal = document.getElementById('confirm-early-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        return;
+      }
+
+      const elapsedSec = stopAndResetTimer();
+      const durationMin = overrideDurationMin !== null
+        ? overrideDurationMin
+        : Math.max(1, Math.round(elapsedSec / 60));
+      const sessionDate = overrideTimestamp ? new Date(overrideTimestamp) : new Date();
+
+      const snapshot = {
+        id: 'hist-' + Date.now(),
+        timestamp: sessionDate.getTime(),
+        date: sessionDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+        time: sessionDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+        dayKey,
+        title: workout.title,
+        doneSets: stats.doneSets,
+        totalSets: stats.totalSets,
+        doneExercises: stats.doneExercises,
+        totalExercises: stats.totalExercises,
+        partial: isPartial,
+        durationMin,
+        readyCount: stats.readyCount,
+        prCount: stats.prCount,
+        exercises: workout.exercises.map(ex => ({
+          name: ex.name,
+          weight: ex.weight,
+          sets: [...ex.sets],
+          unit: ex.unit,
+          completed: Boolean(ex.completed),
+          status: getStatus(ex),
+          pr: isPR(ex),
+          note: ex.note
+        }))
+      };
+
+      state.history.unshift(snapshot);
+
+      // Update dated milestone & duration point for session date
+      const shortDate = sessionDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const fullDate = sessionDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      const latestPt = state.weeklyMilestones[state.weeklyMilestones.length - 1];
+      if (latestPt && latestPt.label === shortDate) {
+        latestPt.increases += stats.readyCount;
+        latestPt.prs += stats.prCount;
+        latestPt.durationMin = durationMin;
+      } else {
+        state.weeklyMilestones.push({
+          label: shortDate,
+          fullDate,
+          increases: stats.readyCount,
+          prs: stats.prCount,
+          durationMin
+        });
+        if (state.weeklyMilestones.length > 8) state.weeklyMilestones.shift();
+      }
+
+      // Update cumulative 3-workout-week counter (never resets on missed days)
+      const prevWeeks = getCompletedWeeks();
+      state.totalWorkouts = (state.totalWorkouts || 0) + 1;
+      const nextWeeks = getCompletedWeeks();
+      const newlyUnlockedReward = MYSTERY_REWARDS.find(r => r.week > prevWeeks && r.week <= nextWeeks);
+
+      // Roll weights & bests ONLY for exercises that had >= 1 logged set
+      workout.exercises.forEach(ex => {
+        const hasLogged = ex.sets.some(v => v !== null && v > 0);
+        if (hasLogged) {
+          const st = getStatus(ex);
+          if (ex.weight > (ex.bestWeight || 0)) ex.bestWeight = ex.weight;
+          ex.prevWeight = ex.weight;
+          ex.earnedBump = st === 'increase';
+        }
+        ex.completed = false;
+        ex.sets = ex.sets.map(() => null);
+      });
+
+      state.warmupChecks = { cardio: false, mobility: false, ramp: false };
+
+      // Advance rotation to next slot whose day !== dayKey so alternating Upper/Lower always stays synced
+      let nextIdx = (state.rotationIndex + 1) % ROTATION_LABELS.length;
+      for (let step = 0; step < ROTATION_LABELS.length; step++) {
+        const cand = (state.rotationIndex + 1 + step) % ROTATION_LABELS.length;
+        if (ROTATION_LABELS[cand].day !== dayKey) {
+          nextIdx = cand;
+          break;
+        }
+      }
+      state.rotationIndex = nextIdx;
+      state.nextDay = ROTATION_LABELS[state.rotationIndex].day;
+      state.activeDay = state.nextDay;
+      state.expandedId = state.workouts[state.activeDay].exercises[0]?.id || null;
+      state.activeTab = 'history';
+      shouldAnimateChart = true;
+      expandedHistoryId = snapshot.id;
+
+      saveState();
+      render();
+      const parts = [
+        `${workout.title} (${stats.doneExercises}/${stats.totalExercises})`,
+        `⏱ ${durationMin} min`,
+        stats.readyCount ? `⬆ ${stats.readyCount} weight jumps` : null,
+        stats.prCount ? `👑 ${stats.prCount} PRs` : null,
+        newlyUnlockedReward ? `🎁 New Mystery Surprise unlocked in Crown tab!` : null
+      ].filter(Boolean);
+      launchCelebration(parts.join(' · '));
+    }
+
+    // ================= ROYAL CROWN & MYSTERY REWARDS =================
+    function getCompletedWeeks() {
+      return Math.floor((state.totalWorkouts || 0) / 3);
+    }
+
+    function getWeekSlotProgress() {
+      return (state.totalWorkouts || 0) % 3;
+    }
+
+    function getCurrentRoyalRank(weeks) {
+      let current = ROYAL_RANKS[0];
+      let next = null;
+      for (let i = 0; i < ROYAL_RANKS.length; i++) {
+        if (weeks >= ROYAL_RANKS[i].minWeeks) {
+          current = ROYAL_RANKS[i];
+          next = ROYAL_RANKS[i + 1] || null;
+        }
+      }
+      return { current, next };
+    }
+
+    function getUnclaimedRewardCount() {
+      const wks = getCompletedWeeks();
+      const claimed = state.claimedRewardIds || [];
+      return MYSTERY_REWARDS.filter(r => wks >= r.week && !claimed.includes(r.id)).length;
+    }
+
+    let activeVoucherId = null;
+    let revealRAF = null;
+    let revealTimer = null;
+
+    function fireRevealBurst(rewardId) {
+      const canvas = document.getElementById('reveal-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const particles = [];
+      let simTime = 0;
+      const startTime = performance.now();
+      let lastTime = startTime;
+
+      if (rewardId === 'r1') {
+        const icons = ['☕', '✨', '🥐', '💛'];
+        for (let i = 0; i < 55; i++) {
+          particles.push({
+            x: Math.random() * W, y: H + Math.random() * 140,
+            vy: -(2.4 + Math.random() * 4.2), phase: Math.random() * 6.28,
+            size: i < 20 ? 20 + Math.random() * 12 : 4 + Math.random() * 6,
+            icon: i < 20 ? icons[i % icons.length] : null,
+            color: i % 2 ? '#fde68a' : '#f59e0b', life: 1, decay: 0.006 + Math.random() * 0.004
+          });
+        }
+      } else if (rewardId === 'r2') {
+        const icons = ['🌹', '🌸', '💖', '🌷', '✨'];
+        for (let i = 0; i < 42; i++) {
+          particles.push({
+            x: Math.random() * W, y: -Math.random() * H * 0.6,
+            vx: (Math.random() - 0.5) * 2.2, vy: 2 + Math.random() * 3.2,
+            phase: Math.random() * 6.28, icon: icons[i % icons.length],
+            size: 18 + Math.random() * 16, life: 1, decay: 0.0055
+          });
+        }
+      } else if (rewardId === 'r3') {
+        const centers = [[W * 0.25, H * 0.3], [W * 0.75, H * 0.32], [W * 0.5, H * 0.22]];
+        const cols = ['#facc15', '#fb7185', '#fde68a'];
+        centers.forEach(([cx, cy], b) => {
+          for (let i = 0; i < 32; i++) {
+            const ang = (Math.PI * 2 * i) / 32 + Math.random() * 0.2;
+            const spd = 2.5 + Math.random() * 7;
+            particles.push({
+              x: cx, y: cy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+              color: cols[b % cols.length], size: 3 + Math.random() * 3.5,
+              life: 1, decay: 0.009 + Math.random() * 0.007
+            });
+          }
+        });
+      } else if (rewardId === 'r4') {
+        const cols = ['#67e8f9', '#f472b6', '#facc15', '#ffffff', '#c084fc'];
+        for (let i = 0; i < 75; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 2.5 + Math.random() * 8.5;
+          particles.push({
+            x: W / 2, y: H / 2, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+            size: 5 + Math.random() * 7, color: cols[i % cols.length],
+            rot: Math.random() * 6.28, vrot: (Math.random() - 0.5) * 0.22,
+            life: 1, decay: 0.009 + Math.random() * 0.006
+          });
+        }
+      } else {
+        const icons = ['👑', '💎', '🦋', '✨', '🌟'];
+        for (let i = 0; i < 90; i++) {
+          const ang = (Math.PI * 2 * i) / 90;
+          particles.push({
+            ang, r: 45 + Math.random() * 140, x: W / 2, y: H / 2,
+            vx: Math.cos(ang) * (3 + Math.random() * 7), vy: Math.sin(ang) * (3 + Math.random() * 7),
+            icon: i < 22 ? icons[i % icons.length] : null,
+            color: i % 3 === 0 ? '#facc15' : (i % 3 === 1 ? '#f472b6' : '#c084fc'),
+            size: i < 22 ? 22 : 3.5 + Math.random() * 4, life: 1, decay: 0.0065
+          });
+        }
+      }
+
+      if (revealRAF) cancelAnimationFrame(revealRAF);
+      function tick(now) {
+        const dt = Math.min(3, (now - lastTime) / 16.667);
+        lastTime = now;
+        simTime += dt;
+        const elapsedMs = now - startTime;
+        ctx.clearRect(0, 0, W, H);
+        let alive = false;
+
+        if (rewardId === 'r1') {
+          particles.forEach(p => {
+            p.y += p.vy * dt; p.x += Math.sin(simTime * 0.07 + p.phase) * 1.4 * dt; p.life -= p.decay * dt;
+            if (p.life <= 0) return; alive = true; ctx.globalAlpha = p.life;
+            if (p.icon) { ctx.font = `${p.size}px sans-serif`; ctx.fillText(p.icon, p.x, p.y); }
+            else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }
+          });
+        } else if (rewardId === 'r2') {
+          particles.forEach(p => {
+            p.y += p.vy * dt; p.x += (p.vx + Math.sin(simTime * 0.06 + p.phase) * 1.8) * dt; p.life -= p.decay * dt;
+            if (p.life <= 0) return; alive = true; ctx.globalAlpha = p.life;
+            ctx.font = `${p.size}px sans-serif`; ctx.fillText(p.icon, p.x, p.y);
+          });
+        } else if (rewardId === 'r3') {
+          particles.forEach(p => {
+            p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.1 * dt; p.life -= p.decay * dt;
+            if (p.life <= 0) return; alive = true; ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+          });
+        } else if (rewardId === 'r4') {
+          const beamAlpha = Math.max(0, 1 - elapsedMs / 2400);
+          if (beamAlpha > 0) {
+            alive = true;
+            for (let b = 0; b < 2; b++) {
+              ctx.strokeStyle = `rgba(250,204,21,${0.28 * beamAlpha})`; ctx.lineWidth = 46;
+              ctx.beginPath(); ctx.moveTo(b === 0 ? 0 : W, H);
+              ctx.lineTo(W / 2 + Math.sin(simTime * 0.06 + b * 2) * (W * 0.35), 0); ctx.stroke();
+            }
+          }
+          particles.forEach(p => {
+            p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.08 * dt; p.rot += p.vrot * dt; p.life -= p.decay * dt;
+            if (p.life <= 0) return; alive = true;
+            ctx.save(); ctx.globalAlpha = p.life; ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.moveTo(0, -p.size); ctx.lineTo(p.size * 0.65, 0); ctx.lineTo(0, p.size); ctx.lineTo(-p.size * 0.65, 0); ctx.closePath(); ctx.fill();
+            ctx.restore();
+          });
+        } else {
+          const ringAlpha = Math.max(0, 1 - elapsedMs / 2600);
+          if (ringAlpha > 0) {
+            alive = true;
+            for (let r = 0; r < 3; r++) {
+              const rad = ((simTime * 4.5 + r * 70) % (Math.max(W, H) * 0.65));
+              ctx.strokeStyle = r % 2 === 0 ? '#facc15' : '#f472b6';
+              ctx.globalAlpha = ringAlpha * (1 - rad / (Math.max(W, H) * 0.65)); ctx.lineWidth = 4;
+              ctx.beginPath(); ctx.arc(W / 2, H / 2, rad, 0, Math.PI * 2); ctx.stroke();
+            }
+          }
+          particles.forEach(p => {
+            p.life -= p.decay * dt; if (p.life <= 0) return; alive = true; ctx.globalAlpha = p.life;
+            if (p.icon) {
+              p.x += p.vx * 0.7 * dt; p.y += p.vy * 0.7 * dt; ctx.font = `${p.size}px sans-serif`; ctx.fillText(p.icon, p.x, p.y);
+            } else {
+              p.ang += 0.04 * dt;
+              const x = W / 2 + Math.cos(p.ang) * (p.r + simTime * 0.6);
+              const y = H / 2 + Math.sin(p.ang) * (p.r + simTime * 0.6);
+              ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(x, y, p.size, 0, Math.PI * 2); ctx.fill();
+            }
+          });
+        }
+        ctx.globalAlpha = 1;
+        if (alive && elapsedMs < 3200) revealRAF = requestAnimationFrame(tick);
+      }
+      revealRAF = requestAnimationFrame(tick);
+    }
+
+    function openVoucher(id) {
+      const r = MYSTERY_REWARDS.find(x => x.id === id);
+      if (!r || getCompletedWeeks() < r.week) return;
+      activeVoucherId = id;
+      state.revealedRewardIds = state.revealedRewardIds || [];
+      state.claimedRewardIds = state.claimedRewardIds || [];
+      const alreadyRevealed = state.revealedRewardIds.includes(id) || state.claimedRewardIds.includes(id);
+      const isClaimed = state.claimedRewardIds.includes(id);
+
+      document.getElementById('v-emoji').textContent = r.emoji;
+      document.getElementById('v-title').textContent = r.title;
+      document.getElementById('v-desc').textContent = r.desc;
+      document.getElementById('v-meta').textContent = `Unlocked at Week ${r.week} (${r.week * 3} workouts) · For Queen Živilė`;
+      document.getElementById('v-claim-btn').textContent = isClaimed ? 'Claimed ✓ (Undo)' : 'Mark Claimed ✓';
+
+      const modal = document.getElementById('voucher-modal');
+      const unwrapEl = document.getElementById('v-unwrap-stage');
+      const revealEl = document.getElementById('v-reveal-stage');
+      const giftBox = document.getElementById('v-gift-box');
+      const emojiEl = document.getElementById('v-emoji');
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      clearTimeout(revealTimer);
+
+      if (!alreadyRevealed) {
+        unwrapEl.classList.remove('hidden');
+        revealEl.classList.add('hidden');
+        giftBox.classList.remove('animate-gift-shake');
+        void giftBox.offsetWidth;
+        giftBox.classList.add('animate-gift-shake');
+
+        revealTimer = setTimeout(() => {
+          if (!state.revealedRewardIds.includes(id)) state.revealedRewardIds.push(id);
+          saveState();
+          unwrapEl.classList.add('hidden');
+          revealEl.classList.remove('hidden');
+          emojiEl.classList.remove('animate-reward-reveal');
+          void emojiEl.offsetWidth;
+          emojiEl.classList.add('animate-reward-reveal');
+          fireRevealBurst(id);
+          render();
+        }, 850);
+      } else {
+        unwrapEl.classList.add('hidden');
+        revealEl.classList.remove('hidden');
+        fireRevealBurst(id);
+      }
+    }
+
+    function closeVoucher() {
+      clearTimeout(revealTimer);
+      if (revealRAF) cancelAnimationFrame(revealRAF);
+      revealRAF = null;
+      const canvas = document.getElementById('reveal-canvas');
+      if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+      const modal = document.getElementById('voucher-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function markVoucherClaimed() {
+      if (!activeVoucherId) return;
+      state.claimedRewardIds = state.claimedRewardIds || [];
+      const idx = state.claimedRewardIds.indexOf(activeVoucherId);
+      if (idx >= 0) state.claimedRewardIds.splice(idx, 1);
+      else state.claimedRewardIds.push(activeVoucherId);
+      saveState();
+      closeVoucher();
+      render();
+    }
+
+    function resetDemoData() {
+      state = structuredClone(DEFAULT_DATA);
+      expandedHistoryId = null;
+      shouldAnimateChart = true;
+      saveState();
+      render();
+      showToast('All workout data reset to Day 1');
+    }
+
+    function toggleHistory(id) {
+      shouldAnimateChart = false;
+      expandedHistoryId = expandedHistoryId === id ? null : id;
+      render();
+    }
+
+    // ================= 32-ANIMATION DELTA-TIME CANVAS ENGINE =================
+    let celebRAF = null;
+    let celebTimeout = null;
+
+    function dismissCelebration() {
+      const overlay = document.getElementById('celebration');
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+      if (celebRAF) cancelAnimationFrame(celebRAF);
+      if (celebTimeout) clearTimeout(celebTimeout);
+      celebRAF = null;
+      const canvas = document.getElementById('celeb-canvas');
+      if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function launchCelebration(summaryLine) {
+      const { anim } = pickNextAnimation();
+      const overlay = document.getElementById('celebration');
+      const canvas = document.getElementById('celeb-canvas');
+      const ctx = canvas.getContext('2d');
+
+      document.getElementById('celeb-emoji').textContent = anim.emoji;
+      document.getElementById('celeb-title').textContent = anim.title;
+      document.getElementById('celeb-quote').textContent = anim.sub;
+      document.getElementById('celeb-sub').textContent = summaryLine || '';
+
+      const card = document.getElementById('celeb-card');
+      card.classList.remove('animate-pop');
+      void card.offsetWidth;
+      card.classList.add('animate-pop');
+
+      const timerBar = document.getElementById('celeb-timer-bar');
+      timerBar.style.transition = 'none';
+      timerBar.style.width = '100%';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          timerBar.style.transition = 'width 5000ms linear';
+          timerBar.style.width = '0%';
+        });
+      });
+
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+
+      const dpr = window.devicePixelRatio || 1;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const palette = ['#facc15', '#f472b6', '#ec4899', '#c084fc', '#fde68a', '#67e8f9', '#fb7185', '#f8fafc'];
+      const particles = [];
+      let simTime = 0;
+      let nextBurstAt = 750;
+      const startTime = performance.now();
+      let lastTime = startTime;
+      const type = anim.id;
+
+      function spawnFireworkBurst(cx, cy, col) {
+        for (let i = 0; i < 34; i++) {
+          const ang = (Math.PI * 2 * i) / 34 + Math.random() * 0.2;
+          const spd = 2.2 + Math.random() * 6.5;
+          particles.push({
+            x: cx, y: cy,
+            vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+            color: col || palette[i % palette.length],
+            life: 1, decay: 0.012 + Math.random() * 0.008, size: 2.5 + Math.random() * 3.5
+          });
+        }
+      }
+
+      if (type === 'confetti' || type === 'diamonds' || type === 'ribbons' || type === 'whirlwind') {
+        for (let i = 0; i < 95; i++) {
+          particles.push({
+            x: Math.random() * W,
+            y: type === 'ribbons' ? H + Math.random() * H * 0.6 : -Math.random() * H * 0.8,
+            vx: type === 'whirlwind' ? (Math.random() - 0.5) * 6 : (Math.random() - 0.5) * 3.5,
+            vy: type === 'ribbons' ? -(2.5 + Math.random() * 3.5) : 2.2 + Math.random() * 4.2,
+            size: 5 + Math.random() * 7, color: palette[i % palette.length],
+            rot: Math.random() * Math.PI * 2, vrot: (Math.random() - 0.5) * 0.18, phase: Math.random() * 6
+          });
+        }
+      } else if (type === 'fireworks' || type === 'tiara' || type === 'velvet' || type === 'fountain') {
+        spawnFireworkBurst(W * 0.3, H * 0.28, '#f472b6');
+        spawnFireworkBurst(W * 0.7, H * 0.32, '#facc15');
+        spawnFireworkBurst(W * 0.5, H * 0.22, '#c084fc');
+      } else if (['roses', 'butterflies', 'hearts', 'balloons', 'blossoms', 'gala', 'lotus', 'swans', 'crystalglow'].includes(type)) {
+        const iconMap = {
+          roses: ['🌹', '🌷', '🌸', '✨'],
+          butterflies: ['🦋', '✨', '🌸', '💫'],
+          hearts: ['💖', '💗', '💕', '👑', '✨'],
+          balloons: ['🎈', '🎀', '👑', '✨'],
+          blossoms: ['🌸', '🌺', '✨', '💮'],
+          gala: ['👑', '🏆', '💎', '⭐', '🥂'],
+          lotus: ['🪷', '✨', '🌸', '💛'],
+          swans: ['🦢', '🤍', '✨', '👑'],
+          crystalglow: ['💍', '💎', '💖', '✨', '👑']
+        };
+        const icons = iconMap[type];
+        const rises = type === 'hearts' || type === 'balloons' || type === 'crystalglow';
+        for (let i = 0; i < 38; i++) {
+          particles.push({
+            x: Math.random() * W,
+            y: rises ? H + Math.random() * H * 0.6 : -Math.random() * H * 0.9,
+            vx: (Math.random() - 0.5) * 2.4,
+            vy: rises ? -(2.2 + Math.random() * 3.6) : 1.8 + Math.random() * 3.2,
+            icon: icons[i % icons.length], size: 20 + Math.random() * 16, phase: Math.random() * 6
+          });
+        }
+      } else if (type === 'fairydust' || type === 'fireflies' || type === 'champagne' || type === 'pearls') {
+        for (let i = 0; i < 80; i++) {
+          particles.push({
+            x: Math.random() * W,
+            y: type === 'champagne' ? H + Math.random() * H * 0.5 : Math.random() * H,
+            vx: (Math.random() - 0.5) * 1.6,
+            vy: type === 'champagne' ? -(1.8 + Math.random() * 3.2) : (Math.random() - 0.5) * 1.4,
+            color: type === 'pearls' ? (i % 2 ? '#f8fafc' : '#fde68a') : (type === 'champagne' ? '#fde68a' : palette[i % palette.length]),
+            size: type === 'pearls' ? 4 + Math.random() * 5 : 2 + Math.random() * 4, phase: Math.random() * 6.28
+          });
+        }
+      } else if (type === 'shootingstars' || type === 'starlight' || type === 'comets') {
+        for (let i = 0; i < 45; i++) {
+          particles.push({
+            x: type === 'starlight' ? Math.random() * W : Math.random() * W * 1.4,
+            y: -Math.random() * H * 0.8,
+            vx: type === 'starlight' ? (Math.random() - 0.5) * 1.5 : -(4.5 + Math.random() * 5),
+            vy: type === 'starlight' ? (2.2 + Math.random() * 3.8) : (4.5 + Math.random() * 5),
+            color: i % 2 ? '#facc15' : '#f472b6', size: type === 'comets' ? 3 + Math.random() * 3 : 2 + Math.random() * 2.8
+          });
+        }
+      } else if (type === 'crown' || type === 'spiral') {
+        for (let i = 0; i < 64; i++) {
+          particles.push({
+            ang: (Math.PI * 2 * i) / 64, r: 55 + Math.random() * 135,
+            color: i % 3 === 0 ? '#facc15' : (i % 3 === 1 ? '#f472b6' : '#fde68a'),
+            size: 2.5 + Math.random() * 4
+          });
+        }
+      }
+
+      if (celebRAF) cancelAnimationFrame(celebRAF);
+      function tick(now) {
+        const dt = Math.min(3, (now - lastTime) / 16.667);
+        lastTime = now;
+        simTime += dt;
+        const elapsedMs = now - startTime;
+        ctx.clearRect(0, 0, W, H);
+
+        if (type === 'confetti' || type === 'diamonds' || type === 'whirlwind') {
+          particles.forEach(p => {
+            p.x += (p.vx + Math.sin(simTime * (type === 'whirlwind' ? 0.12 : 0.05) + p.phase) * (type === 'whirlwind' ? 3.5 : 0.8)) * dt;
+            p.y += p.vy * dt;
+            p.rot += p.vrot * dt;
+            if (p.y > H + 20) { p.y = -20; p.x = Math.random() * W; }
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.color;
+            if (type === 'diamonds') {
+              ctx.beginPath(); ctx.moveTo(0, -p.size); ctx.lineTo(p.size * 0.65, 0); ctx.lineTo(0, p.size); ctx.lineTo(-p.size * 0.65, 0); ctx.closePath(); ctx.fill();
+            } else {
+              ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+            }
+            ctx.restore();
+          });
+        } else if (type === 'ribbons') {
+          particles.forEach(p => {
+            p.y += p.vy * dt;
+            if (p.y < -40) { p.y = H + 30; p.x = Math.random() * W; }
+            const sway = Math.sin(simTime * 0.08 + p.phase) * 26;
+            ctx.strokeStyle = p.color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(p.x + sway, p.y); ctx.lineTo(p.x - sway * 0.5, p.y + 34); ctx.stroke();
+          });
+        } else if (type === 'fireworks' || type === 'tiara' || type === 'velvet' || type === 'fountain') {
+          if (elapsedMs >= nextBurstAt && elapsedMs < 4400) {
+            nextBurstAt += type === 'fountain' ? 480 : 720;
+            const cx = type === 'fountain' ? W * 0.5 : W * (0.2 + Math.random() * 0.6);
+            const cy = type === 'fountain' ? H * 0.72 : H * (0.18 + Math.random() * 0.35);
+            const col = type === 'velvet' ? '#fb7185' : palette[Math.floor(Math.random() * palette.length)];
+            spawnFireworkBurst(cx, cy, col);
+          }
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.09 * dt; p.life -= p.decay * dt;
+            if (p.life <= 0) { particles.splice(i, 1); continue; }
+            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        } else if (['roses', 'butterflies', 'hearts', 'balloons', 'blossoms', 'gala', 'lotus', 'swans', 'crystalglow'].includes(type)) {
+          const rises = type === 'hearts' || type === 'balloons' || type === 'crystalglow';
+          particles.forEach(p => {
+            p.x += (p.vx + Math.sin(simTime * 0.06 + p.phase) * (type === 'butterflies' || type === 'blossoms' || type === 'swans' ? 1.8 : 0.7)) * dt;
+            p.y += p.vy * dt;
+            if (rises && p.y < -40) { p.y = H + 30; p.x = Math.random() * W; }
+            if (!rises && p.y > H + 40) { p.y = -30; p.x = Math.random() * W; }
+            ctx.font = `${p.size}px sans-serif`; ctx.fillText(p.icon, p.x, p.y);
+          });
+        } else if (type === 'fairydust' || type === 'fireflies' || type === 'champagne' || type === 'pearls') {
+          particles.forEach(p => {
+            p.x += (p.vx + Math.sin(simTime * 0.04 + p.phase) * 0.5) * dt;
+            p.y += p.vy * dt;
+            if (p.y < -15) { p.y = H + 15; p.x = Math.random() * W; }
+            if (p.y > H + 15) p.y = -15;
+            if (p.x < -15) p.x = W + 15;
+            if (p.x > W + 15) p.x = -15;
+            const twinkle = 0.45 + 0.55 * Math.abs(Math.sin(simTime * 0.08 + p.phase));
+            ctx.globalAlpha = twinkle; ctx.fillStyle = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+        } else if (type === 'shootingstars' || type === 'starlight' || type === 'comets') {
+          particles.forEach(p => {
+            const ox = p.x, oy = p.y;
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.y > H + 30 || p.x < -30 || p.x > W + 30) {
+              p.x = type === 'starlight' ? Math.random() * W : Math.random() * W * 1.4;
+              p.y = -20;
+            }
+            ctx.strokeStyle = p.color; ctx.lineWidth = p.size; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(ox, oy);
+            ctx.lineTo(p.x + p.vx * (type === 'comets' ? 4.5 : 3), p.y + p.vy * (type === 'comets' ? 4.5 : 3));
+            ctx.stroke();
+          });
+        } else if (type === 'crown' || type === 'spiral') {
+          particles.forEach((p, i) => {
+            p.ang += (type === 'spiral' ? 0.055 : 0.028) * dt;
+            const rad = type === 'spiral' ? ((p.r + simTime * 1.4) % (Math.min(W, H) * 0.55)) : (p.r + Math.sin(simTime * 0.06) * 16);
+            const x = W / 2 + Math.cos(p.ang + (type === 'spiral' ? i * 0.15 : 0)) * rad;
+            const y = H / 2 + Math.sin(p.ang + (type === 'spiral' ? i * 0.15 : 0)) * rad;
+            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(x, y, p.size, 0, Math.PI * 2); ctx.fill();
+          });
+        } else if (type === 'heartrings' || type === 'rainbowhalo') {
+          for (let r = 0; r < 6; r++) {
+            const rad = ((simTime * 3.8 + r * 58) % (Math.max(W, H) * 0.72));
+            ctx.strokeStyle = palette[r % palette.length];
+            ctx.globalAlpha = Math.max(0, 1 - rad / (Math.max(W, H) * 0.72));
+            ctx.lineWidth = type === 'rainbowhalo' ? 7 : 4;
+            ctx.beginPath(); ctx.arc(W / 2, H / 2, rad, 0, Math.PI * 2); ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        } else if (type === 'spotlight' || type === 'prism') {
+          const count = type === 'spotlight' ? 2 : 7;
+          for (let i = 0; i < count; i++) {
+            const originX = i % 2 === 0 ? 0 : W;
+            const originY = type === 'prism' ? 0 : H;
+            const targetX = W / 2 + Math.sin(simTime * 0.04 + i * 1.1) * (W * 0.45);
+            const targetY = type === 'prism' ? H : 0;
+            ctx.strokeStyle = type === 'spotlight' ? 'rgba(250,204,21,0.32)' : palette[i % palette.length];
+            ctx.globalAlpha = type === 'prism' ? 0.55 : 1;
+            ctx.lineWidth = type === 'spotlight' ? 54 : 5;
+            ctx.beginPath(); ctx.moveTo(originX, originY); ctx.lineTo(targetX, targetY); ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        } else if (type === 'aurora' || type === 'sunsetwaves') {
+          const cols = type === 'sunsetwaves' ? ['#fb7185', '#f472b6', '#facc15', '#c084fc'] : palette;
+          for (let b = 0; b < 4; b++) {
+            ctx.strokeStyle = cols[b % 4]; ctx.globalAlpha = 0.42; ctx.lineWidth = 30;
+            ctx.beginPath();
+            for (let x = 0; x <= W; x += 20) {
+              const y = H * (0.22 + b * 0.15) + Math.sin(x * 0.014 + simTime * 0.05 + b) * 38;
+              if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        }
+
+        if (elapsedMs < 5100) celebRAF = requestAnimationFrame(tick);
+      }
+      celebRAF = requestAnimationFrame(tick);
+
+      clearTimeout(celebTimeout);
+      celebTimeout = setTimeout(dismissCelebration, 5000);
+    }
+
+    // ================= INTERACTIVE FLUID LINE CHART =================
+    const CHART_PAD = { top: 20, right: 16, bottom: 28, left: 32 };
+    let activeChartIdx = -1;
+    let chartAnimProgress = 1;
+    let chartAnimRAF = null;
+
+    function withAlpha(cssColor, alpha) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 1;
+      const g = c.getContext('2d');
+      g.fillStyle = '#3b82f6';
+      g.fillStyle = cssColor;
+      g.fillRect(0, 0, 1, 1);
+      const [r, gr, b] = g.getImageData(0, 0, 1, 1).data;
+      return `rgba(${r}, ${gr}, ${b}, ${alpha})`;
+    }
+
+    function updateChartReadout(idx) {
+      const el = document.getElementById('chart-readout');
+      if (!el) return;
+      const data = state.weeklyMilestones;
+      if (!data.length) {
+        el.innerHTML = `<span class="text-[var(--muted-foreground)]">No sessions plotted yet — finish a workout to start your line</span>`;
+        return;
+      }
+      const d = data[idx] || data[data.length - 1];
+      const durTxt = d.durationMin != null ? ` · <span class="text-[var(--warning)] font-semibold">⏱ ${d.durationMin}m</span>` : '';
+      el.innerHTML = `<span class="font-semibold text-[var(--foreground)]">${escapeHtml(d.fullDate || d.label)}</span>${durTxt} · <span class="text-[var(--success)] font-semibold">⬆ ${d.increases}</span> · <span class="text-[var(--primary)] font-semibold">👑 ${d.prs}</span>`;
+    }
+
+    function animateMilestonesChart() {
+      const data = state.weeklyMilestones;
+      activeChartIdx = data.length - 1;
+      updateChartReadout(activeChartIdx);
+      if (!data.length || !shouldAnimateChart) {
+        chartAnimProgress = 1;
+        drawMilestonesChart();
+        return;
+      }
+      shouldAnimateChart = false;
+      chartAnimProgress = 0;
+      if (chartAnimRAF) cancelAnimationFrame(chartAnimRAF);
+      const start = performance.now();
+      const duration = 680;
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        chartAnimProgress = 1 - Math.pow(1 - t, 3);
+        drawMilestonesChart();
+        if (t < 1) chartAnimRAF = requestAnimationFrame(step);
+      }
+      chartAnimRAF = requestAnimationFrame(step);
+    }
+
+    function bindChartInteraction(canvas) {
+      if (canvas.dataset.bound) return;
+      canvas.dataset.bound = '1';
+      function pickPoint(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const data = state.weeklyMilestones;
+        if (!data.length || !rect.width) return;
+        const relX = Math.max(0, Math.min(1, (clientX - rect.left - CHART_PAD.left) / (rect.width - CHART_PAD.left - CHART_PAD.right)));
+        const idx = data.length === 1 ? 0 : Math.round(relX * (data.length - 1));
+        if (idx !== activeChartIdx) {
+          activeChartIdx = idx;
+          updateChartReadout(idx);
+          drawMilestonesChart();
+        }
+      }
+      canvas.addEventListener('pointerdown', e => {
+        try { canvas.setPointerCapture(e.pointerId); } catch {}
+        pickPoint(e.clientX);
+      });
+      canvas.addEventListener('pointermove', e => {
+        if (e.buttons > 0 || e.pointerType === 'mouse') pickPoint(e.clientX);
+      });
+    }
+
+    function drawSmoothSpline(ctx, pts, closeToY) {
+      ctx.beginPath();
+      if (pts.length === 0) return;
+      ctx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 1) {
+        ctx.lineTo(pts[0].x + 0.5, pts[0].y);
+      } else {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const p0 = pts[Math.max(0, i - 1)];
+          const p1 = pts[i];
+          const p2 = pts[i + 1];
+          const p3 = pts[Math.min(pts.length - 1, i + 2)];
+          const cp1x = p1.x + (p2.x - p0.x) / 6;
+          const cp1y = p1.y + (p2.y - p0.y) / 6;
+          const cp2x = p2.x - (p3.x - p1.x) / 6;
+          const cp2y = p2.y - (p3.y - p1.y) / 6;
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
+      }
+      if (closeToY !== undefined) {
+        ctx.lineTo(pts[pts.length - 1].x, closeToY);
+        ctx.lineTo(pts[0].x, closeToY);
+        ctx.closePath();
+      }
+    }
+
+    function drawMilestonesChart() {
+      const canvas = document.getElementById('milestones-chart');
+      if (!canvas) return;
+      bindChartInteraction(canvas);
+
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width) return;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const cs = getComputedStyle(document.documentElement);
+      const fg = cs.getPropertyValue('--foreground').trim() || '#111827';
+      const muted = cs.getPropertyValue('--muted-foreground').trim() || '#6b7280';
+      const border = cs.getPropertyValue('--border').trim() || '#e5e7eb';
+      const cSuccess = cs.getPropertyValue('--success').trim() || '#22c55e';
+      const cPrimary = cs.getPropertyValue('--primary').trim() || '#3b82f6';
+      const cWarning = cs.getPropertyValue('--warning').trim() || '#f59e0b';
+      const cardBg = cs.getPropertyValue('--card').trim() || '#ffffff';
+
+      const data = state.weeklyMilestones;
+      const W = rect.width;
+      const H = rect.height;
+      const pad = CHART_PAD;
+      const chartW = W - pad.left - pad.right;
+      const chartH = H - pad.top - pad.bottom;
+      const baseY = pad.top + chartH;
+      const isDur = state.historyChartMode === 'duration';
+
+      ctx.clearRect(0, 0, W, H);
+      const maxVal = !data.length
+        ? (isDur ? 60 : 8)
+        : (isDur ? Math.max(60, ...data.map(d => d.durationMin || 0)) + 10 : Math.max(6, ...data.map(d => Math.max(d.increases, d.prs))) + 2);
+
+      // Horizontal grid lines
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 3; i++) {
+        const v = Math.round((maxVal / 3) * i);
+        const y = baseY - (v / maxVal) * chartH;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(W - pad.right, y);
+        ctx.stroke();
+        ctx.fillText(isDur ? `${v}m` : String(v), pad.left - 5, y + 3);
+      }
+
+      // Clean empty-state guard
+      if (!data.length) {
+        ctx.fillStyle = muted;
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Complete your first workout to plot progress ✨', pad.left + chartW / 2, pad.top + chartH / 2 + 4);
+        return;
+      }
+
+      if (activeChartIdx < 0 || activeChartIdx >= data.length) activeChartIdx = data.length - 1;
+
+      const xFor = idx => pad.left + (data.length === 1 ? chartW / 2 : (idx / (data.length - 1)) * chartW);
+      const incPts = data.map((d, idx) => ({ x: xFor(idx), y: baseY - (d.increases / maxVal) * chartH }));
+      const prPts = data.map((d, idx) => ({ x: xFor(idx), y: baseY - (d.prs / maxVal) * chartH }));
+      const durPts = data.map((d, idx) => ({ x: xFor(idx), y: baseY - ((d.durationMin || 0) / maxVal) * chartH }));
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(pad.left - 6, 0, (chartW + 12) * chartAnimProgress, H);
+      ctx.clip();
+
+      if (isDur) {
+        const gradDur = ctx.createLinearGradient(0, pad.top, 0, baseY);
+        gradDur.addColorStop(0, withAlpha(cWarning, 0.28));
+        gradDur.addColorStop(1, withAlpha(cWarning, 0.01));
+        drawSmoothSpline(ctx, durPts, baseY);
+        ctx.fillStyle = gradDur;
+        ctx.fill();
+
+        drawSmoothSpline(ctx, durPts);
+        ctx.strokeStyle = cWarning;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      } else {
+        const gradInc = ctx.createLinearGradient(0, pad.top, 0, baseY);
+        gradInc.addColorStop(0, withAlpha(cSuccess, 0.24));
+        gradInc.addColorStop(1, withAlpha(cSuccess, 0.01));
+        drawSmoothSpline(ctx, incPts, baseY);
+        ctx.fillStyle = gradInc;
+        ctx.fill();
+
+        drawSmoothSpline(ctx, incPts);
+        ctx.strokeStyle = cSuccess;
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        const gradPR = ctx.createLinearGradient(0, pad.top, 0, baseY);
+        gradPR.addColorStop(0, withAlpha(cPrimary, 0.2));
+        gradPR.addColorStop(1, withAlpha(cPrimary, 0.01));
+        drawSmoothSpline(ctx, prPts, baseY);
+        ctx.fillStyle = gradPR;
+        ctx.fill();
+
+        drawSmoothSpline(ctx, prPts);
+        ctx.strokeStyle = cPrimary;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      const actX = xFor(activeChartIdx);
+      if (actX !== undefined && chartAnimProgress > 0.85) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = muted;
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(actX, pad.top - 4);
+        ctx.lineTo(actX, baseY);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const thinLabels = W < 310 && data.length > 5;
+      data.forEach((d, idx) => {
+        const isActive = idx === activeChartIdx;
+        if (!thinLabels || idx === 0 || idx === data.length - 1 || idx % 2 === 0 || isActive) {
+          ctx.fillStyle = isActive ? fg : muted;
+          ctx.font = isActive ? 'bold 11px sans-serif' : '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(d.label, xFor(idx), H - 8);
+        }
+
+        if (chartAnimProgress < 0.7) return;
+
+        if (isDur) {
+          const p = durPts[idx];
+          ctx.beginPath(); ctx.arc(p.x, p.y, isActive ? 6 : 4, 0, Math.PI * 2);
+          ctx.fillStyle = isActive ? cWarning : cardBg; ctx.fill();
+          ctx.lineWidth = 2.5; ctx.strokeStyle = cWarning; ctx.stroke();
+        } else {
+          const pInc = incPts[idx];
+          const pPr = prPts[idx];
+          ctx.beginPath(); ctx.arc(pInc.x, pInc.y, isActive ? 6 : 4, 0, Math.PI * 2);
+          ctx.fillStyle = isActive ? cSuccess : cardBg; ctx.fill();
+          ctx.lineWidth = 2.5; ctx.strokeStyle = cSuccess; ctx.stroke();
+
+          ctx.beginPath(); ctx.arc(pPr.x, pPr.y, isActive ? 5.5 : 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = isActive ? cPrimary : cardBg; ctx.fill();
+          ctx.lineWidth = 2.2; ctx.strokeStyle = cPrimary; ctx.stroke();
+        }
+      });
+    }
+
+    window.addEventListener('themechange', drawMilestonesChart);
+    window.addEventListener('resize', drawMilestonesChart);
+
+    // ================= UI RENDERING =================
+    function renderStatusBadge(status, bump, completed) {
+      if (status === 'increase') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--success)]/15 text-[var(--success)] border border-[var(--success)]/25">⬆ +${bump} kg</span>`;
+      }
+      if (status === 'maintain') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--accent)]/15 text-[var(--muted-foreground)] border border-[var(--border)]">🎯 Maintain</span>`;
+      }
+      if (status === 'in-progress') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--warning)]/15 text-[var(--warning)] border border-[var(--warning)]/25">In progress</span>`;
+      }
+      if (completed) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--success)]/15 text-[var(--success)]">✓ Done</span>`;
+      }
+      return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs text-[var(--muted-foreground)] border border-[var(--border)]">Pending</span>`;
+    }
+
+    function renderTypePill(type) {
+      if (type === 'Optional Lift') {
+        return `<span class="px-1.5 py-0.5 rounded text-[11px] font-medium bg-[var(--warning)]/15 text-[var(--warning)]">Optional</span>`;
+      }
+      if (type === 'Ab Finisher') {
+        return `<span class="px-1.5 py-0.5 rounded text-[11px] font-medium bg-[var(--primary)]/15 text-[var(--primary)]">Abs</span>`;
+      }
+      return '';
+    }
+
+    function renderWarmupCard(dayKey) {
+      const workout = state.workouts[dayKey];
+      const rampLifts = workout.exercises.filter(e => e.rampUp);
+      const checkedCount = Object.values(state.warmupChecks).filter(Boolean).length;
+      const pct = Math.round((checkedCount / 3) * 100);
+      const initialPct = warmupAnimFrom !== null ? warmupAnimFrom : pct;
+      const allDone = checkedCount === 3;
+      const started = isSessionStarted();
+
+      return `
+        <div class="rounded-2xl bg-[var(--card)] border ${allDone ? 'border-[var(--success)]/50' : 'border-[var(--border)]'} overflow-hidden transition-colors duration-300">
+          <button onclick="toggleWarmup()" class="w-full px-4 py-3 text-left space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <span class="w-7 h-7 rounded-xl flex items-center justify-center text-sm transition-colors duration-300 ${allDone ? 'bg-[var(--success)]/15 text-[var(--success)]' : 'bg-[var(--primary)]/12 text-[var(--primary)]'}">
+                  ${allDone ? '✓' : '🔥'}
+                </span>
+                <div>
+                  <div class="text-sm font-semibold text-[var(--foreground)]">Warm-Up Protocol</div>
+                  <div class="text-xs text-[var(--muted-foreground)]">${allDone ? 'All 3 steps complete · Ready to lift!' : `${checkedCount}/3 steps · 50% &amp; 75% ramp-up weights`}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono tabular-nums font-semibold ${allDone ? 'text-[var(--success)]' : 'text-[var(--muted-foreground)]'}">${pct}%</span>
+                <span class="text-xs text-[var(--muted-foreground)]">${state.warmupOpen ? '▲' : '▼'}</span>
+              </div>
+            </div>
+            <div class="w-full h-2 rounded-full bg-[var(--background)] overflow-hidden">
+              <div id="warmup-bar" data-target-pct="${pct}" class="warmup-bar-fill h-full rounded-full ${allDone ? 'bg-[var(--success)]' : 'bg-[var(--primary)]'}" style="width: ${initialPct}%"></div>
+            </div>
+          </button>
+
+          ${allDone ? `
+            <div class="mx-4 mb-3 p-3 rounded-xl bg-[var(--success)]/12 border border-[var(--success)]/30 flex items-center justify-between gap-2.5 animate-ready">
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-[var(--success)]">You're warmed up &amp; ready, Živilė! 💪</div>
+                <div class="text-[11px] text-[var(--muted-foreground)] mt-0.5">Time to crush your remaining working sets.</div>
+              </div>
+              <button onclick="startWorkingSets()" class="px-3 py-1.5 rounded-lg bg-[var(--success)] text-white text-xs font-semibold shrink-0 shadow-xs">
+                Start Sets →
+              </button>
+            </div>
+          ` : ''}
+
+          ${state.warmupOpen ? `
+            <div class="px-4 pb-4 pt-2 border-t border-[var(--border)] space-y-2.5">
+              <button type="button" onclick="toggleWarmupCheck('cardio')" class="w-full text-left flex items-start gap-3 p-2.5 rounded-xl bg-[var(--background)]/60 border border-[var(--border)] ${!started ? 'opacity-70' : ''}">
+                <span class="mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-xs border transition-colors ${state.warmupChecks.cardio ? 'bg-[var(--success)] border-[var(--success)] text-white' : 'border-[var(--border)]'}">${state.warmupChecks.cardio ? '✓' : (!started ? '🔒' : '')}</span>
+                <div class="flex-1">
+                  <div class="text-xs font-semibold ${state.warmupChecks.cardio ? 'line-through text-[var(--muted-foreground)]' : ''}">1. Cardio Prep (5–10 min)</div>
+                  <div class="text-xs text-[var(--muted-foreground)]">Brisk walk or light jog to elevate body temperature.</div>
+                </div>
+              </button>
+
+              <button type="button" onclick="toggleWarmupCheck('mobility')" class="w-full text-left flex items-start gap-3 p-2.5 rounded-xl bg-[var(--background)]/60 border border-[var(--border)] ${!started ? 'opacity-70' : ''}">
+                <span class="mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-xs border transition-colors ${state.warmupChecks.mobility ? 'bg-[var(--success)] border-[var(--success)] text-white' : 'border-[var(--border)]'}">${state.warmupChecks.mobility ? '✓' : (!started ? '🔒' : '')}</span>
+                <div class="flex-1">
+                  <div class="text-xs font-semibold ${state.warmupChecks.mobility ? 'line-through text-[var(--muted-foreground)]' : ''}">2. Dynamic Mobility</div>
+                  <div class="text-xs text-[var(--muted-foreground)]">${dayKey === 'lower' ? 'Leg swings, bodyweight squats, hip openers.' : 'Arm circles, band pull-aparts, thoracic openers.'}</div>
+                </div>
+              </button>
+
+              <button type="button" onclick="toggleWarmupCheck('ramp')" class="w-full text-left flex items-start gap-3 p-2.5 rounded-xl bg-[var(--background)]/60 border border-[var(--border)] ${!started ? 'opacity-70' : ''}">
+                <span class="mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-xs border transition-colors ${state.warmupChecks.ramp ? 'bg-[var(--success)] border-[var(--success)] text-white' : 'border-[var(--border)]'}">${state.warmupChecks.ramp ? '✓' : (!started ? '🔒' : '')}</span>
+                <div class="flex-1 space-y-1.5">
+                  <div class="text-xs font-semibold ${state.warmupChecks.ramp ? 'line-through text-[var(--muted-foreground)]' : ''}">3. Joint Prep Ramp-Up Sets</div>
+                  ${rampLifts.map(lift => {
+                    const w50 = roundToHalf((lift.weight || 0) * 0.5);
+                    const w75 = roundToHalf((lift.weight || 0) * 0.75);
+                    return `
+                      <div class="flex items-center justify-between text-xs bg-[var(--card)] px-2.5 py-1.5 rounded-lg border border-[var(--border)]">
+                        <span class="font-medium truncate pr-2">${escapeHtml(lift.name)}</span>
+                        <span class="font-mono tabular-nums text-[var(--muted-foreground)] shrink-0">${w50}kg×10 · ${w75}kg×5</span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderExerciseCard(dayKey, ex) {
+      const isExpanded = state.expandedId === ex.id;
+      const status = getStatus(ex);
+      const pr = isPR(ex);
+      const stepRep = ex.unit === 'sec' ? 5 : 1;
+      const started = isSessionStarted();
+
+      const setSummary = ex.sets.map(val => {
+        const hitTop = val !== null && val >= ex.topReps;
+        const hasVal = val !== null && val > 0;
+        return `<span class="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md text-xs font-mono tabular-nums ${
+          hitTop ? 'bg-[var(--success)]/15 text-[var(--success)] font-semibold'
+          : hasVal ? 'bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)]'
+          : 'bg-[var(--background)]/50 text-[var(--muted-foreground)] border border-dashed border-[var(--border)]'
+        }">${hasVal ? val : '–'}</span>`;
+      }).join('');
+
+      const done = Boolean(ex.completed);
+      const isLower = dayKey === 'lower';
+      const expandBorder = isLower ? 'border-rose-500 shadow-sm' : 'border-emerald-400 shadow-sm';
+      const safeNote = escapeHtml(ex.note || '');
+
+      return `
+        <div id="card-${ex.id}" class="card-expand rounded-2xl bg-[var(--card)] border ${isExpanded ? expandBorder : done ? 'border-[var(--success)]/45 bg-[var(--success)]/[0.03]' : 'border-[var(--border)]'} overflow-hidden">
+          <div onclick="toggleExpand('${ex.id}')" class="w-full px-4 py-3.5 text-left flex flex-col gap-2 cursor-pointer">
+            <div class="flex items-start justify-between gap-2.5">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                <button
+                  type="button"
+                  onclick="toggleCompleteExercise('${dayKey}', '${ex.id}', event)"
+                  title="${!started ? 'Start the Exercise first' : done ? 'Mark incomplete' : 'Mark complete'}"
+                  class="p-2 -m-2 shrink-0 flex items-center justify-center"
+                >
+                  <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
+                    !started
+                      ? 'bg-[var(--background)] border-[var(--border)] text-[var(--muted-foreground)] opacity-60 text-[10px]'
+                      : done
+                        ? 'bg-[var(--success)] border-[var(--success)] text-white'
+                        : 'bg-[var(--background)] border-[var(--border)] text-transparent hover:border-[var(--success)]'
+                  }">${!started ? '🔒' : '✓'}</span>
+                </button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-sm font-semibold leading-snug ${done ? 'line-through text-[var(--muted-foreground)]' : 'text-[var(--foreground)]'}">${escapeHtml(ex.name)}</span>
+                    ${done && status !== 'pending' ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--success)]/15 text-[var(--success)]">Done</span>` : ''}
+                    ${pr ? `<span class="px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--warning)]/20 text-[var(--warning)]">👑 PR</span>` : ''}
+                    ${renderTypePill(ex.type)}
+                  </div>
+                  <div class="text-xs text-[var(--muted-foreground)] mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>${ex.targetSets} × ${ex.targetReps}</span>
+                    <span>·</span>
+                    <span>Rest ${ex.rest}</span>
+                    ${safeNote ? `<span>·</span><span class="text-[var(--foreground)]/80 italic [overflow-wrap:anywhere]">${safeNote}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+              <div class="shrink-0">
+                ${renderStatusBadge(status, ex.bump, done)}
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between flex-wrap gap-x-2 gap-y-1.5 pt-0.5 pl-8">
+              <div class="text-xs font-mono tabular-nums text-[var(--foreground)] font-medium">
+                ${fmtWeight(ex.weight)}
+                ${ex.prevWeight !== null ? `<span class="text-[var(--muted-foreground)] font-normal ml-1">(prev ${ex.prevWeight} kg)</span>` : ''}
+              </div>
+              <div class="flex items-center gap-1">
+                ${setSummary}
+              </div>
+            </div>
+          </div>
+
+          ${isExpanded ? `
+            <div class="px-4 pb-4 pt-3 border-t border-[var(--border)] space-y-4 bg-[var(--background)]/35">
+              <div class="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] text-xs text-[var(--muted-foreground)] leading-relaxed">
+                <span class="font-semibold text-[var(--foreground)]">Cue:</span> ${escapeHtml(ex.cue)}
+              </div>
+
+              ${ex.earnedBump ? `
+                <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[var(--success)]/12 border border-[var(--success)]/30">
+                  <div class="text-xs text-[var(--success)] font-medium">Ready to progress from last session!</div>
+                  <button onclick="applyBump('${dayKey}', '${ex.id}')" class="px-3 py-1.5 rounded-lg bg-[var(--success)] text-white text-xs font-semibold shrink-0">
+                    Apply +${ex.bump} kg
+                  </button>
+                </div>
+              ` : ''}
+
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Working Weight</span>
+                  <div class="inline-flex rounded-lg bg-[var(--card)] border border-[var(--border)] p-0.5 text-xs">
+                    <button onclick="setWeightStep(2.5)" class="px-2 py-0.5 rounded-md font-medium ${state.weightStep === 2.5 ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : 'text-[var(--muted-foreground)]'}">±2.5</button>
+                    <button onclick="setWeightStep(5)" class="px-2 py-0.5 rounded-md font-medium ${state.weightStep === 5 ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : 'text-[var(--muted-foreground)]'}">±5 kg</button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-[56px_1fr_56px] items-center gap-2">
+                  <button onclick="adjustWeight('${dayKey}', '${ex.id}', -${state.weightStep})" class="h-12 rounded-xl bg-[var(--card)] border border-[var(--border)] text-lg font-semibold flex items-center justify-center">−</button>
+                  <div class="h-12 rounded-xl bg-[var(--card)] border border-[var(--border)] flex flex-col items-center justify-center">
+                    <span class="text-base font-bold font-mono tabular-nums leading-none">${ex.weight} kg ${pr ? '👑' : ''}</span>
+                    <span class="text-[11px] text-[var(--muted-foreground)] mt-0.5">Prev: ${ex.prevWeight !== null ? ex.prevWeight + ' kg' : '—'} · Best: ${ex.bestWeight || 0} kg</span>
+                  </div>
+                  <button onclick="adjustWeight('${dayKey}', '${ex.id}', ${state.weightStep})" class="h-12 rounded-xl bg-[var(--card)] border border-[var(--border)] text-lg font-semibold flex items-center justify-center">+</button>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Sets (Goal: ${ex.topReps} ${ex.unit})</span>
+                  <span class="text-xs text-[var(--muted-foreground)]">${started ? `Tap pill to log / +${stepRep}` : '🔒 Start timer to log'}</span>
+                </div>
+
+                <div class="grid ${ex.targetSets === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2 ${!started ? 'opacity-70' : ''}">
+                  ${ex.sets.map((val, idx) => {
+                    const hasVal = val !== null && val > 0;
+                    const hitTop = hasVal && val >= ex.topReps;
+                    return `
+                      <div class="rounded-xl border ${hitTop ? 'bg-[var(--success)]/12 border-[var(--success)]/40' : hasVal ? 'bg-[var(--card)] border-[var(--primary)]/50' : 'bg-[var(--card)] border-[var(--border)]'} p-2 flex flex-col items-center gap-1.5">
+                        <span class="text-[11px] font-medium text-[var(--muted-foreground)]">Set ${idx + 1}</span>
+                        <button onclick="tapSet('${dayKey}', '${ex.id}', ${idx})" class="w-full py-1.5 rounded-lg text-lg font-bold font-mono tabular-nums ${hitTop ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
+                          ${hasVal ? val : '+'}
+                        </button>
+                        <div class="w-full grid grid-cols-2 gap-1">
+                          <button onclick="adjustSet('${dayKey}', '${ex.id}', ${idx}, -${stepRep}, event)" class="h-9 rounded-lg bg-[var(--background)] border border-[var(--border)] text-sm font-semibold">−</button>
+                          <button onclick="adjustSet('${dayKey}', '${ex.id}', ${idx}, ${stepRep}, event)" class="h-9 rounded-lg bg-[var(--background)] border border-[var(--border)] text-sm font-semibold">+</button>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Note</label>
+                <input
+                  type="text"
+                  value="${safeNote}"
+                  placeholder="Machine pin, grip, bar type..."
+                  oninput="updateNote('${dayKey}', '${ex.id}', this.value)"
+                  class="w-full h-11 px-3 rounded-xl bg-[var(--card)] border border-[var(--border)] text-[16px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+
+              <button
+                onclick="toggleCompleteExercise('${dayKey}', '${ex.id}', event)"
+                class="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+                  !started
+                    ? 'bg-[var(--card)] border border-[var(--border)] text-[var(--muted-foreground)] opacity-70'
+                    : done
+                      ? 'bg-[var(--card)] border border-[var(--success)]/50 text-[var(--success)]'
+                      : 'bg-[var(--success)] text-white shadow-xs'
+                }"
+              >
+                ${!started ? '🔒 Start the Exercise to Complete' : done ? '✓ Completed — Tap to Undo' : '✓ Complete Exercise'}
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderWorkoutView() {
+      const dayKey = state.activeDay;
+      const workout = state.workouts[dayKey];
+      const stats = getStats(dayKey);
+      const rot = ROTATION_LABELS[state.rotationIndex];
+      const rank = getCurrentRoyalRank(getCompletedWeeks()).current;
+
+      return `
+        <header class="mb-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-medium text-[var(--muted-foreground)] truncate">${rot.week} (${rot.slot}) · Next: <span class="text-[var(--primary)] font-semibold">${state.workouts[state.nextDay].title}</span></div>
+              <h1 class="text-xl font-bold tracking-tight mt-0.5 truncate">Živilė's Gym Tracker 👑</h1>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <a href="https://open.spotify.com" target="_blank" rel="noopener noreferrer" title="Open Spotify" class="w-9 h-9 rounded-xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="#1DB954" aria-hidden="true">
+                  <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.622.622 0 1 1-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 0 1 .207.857zm1.223-2.722a.78.78 0 0 1-1.072.257c-2.687-1.652-6.785-2.131-9.965-1.166a.78.78 0 0 1-.973-.519.781.781 0 0 1 .52-.972c3.632-1.102 8.147-.568 11.234 1.328a.78.78 0 0 1 .256 1.072zm.105-2.835C14.692 8.95 9.375 8.775 6.297 9.71a.937.937 0 1 1-.543-1.794c3.532-1.072 9.404-.865 13.115 1.338a.937.937 0 0 1-.955 1.613z"/>
+                </svg>
+              </a>
+              <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer" title="Open Strava" class="w-9 h-9 rounded-xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="#FC4C02" aria-hidden="true">
+                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+                </svg>
+              </a>
+              <button onclick="requestClearSession()" class="px-2.5 h-9 rounded-xl bg-[var(--card)] border border-[var(--border)] text-xs font-medium text-[var(--muted-foreground)]">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Prominent Start the Exercise / Live Timer Card (Electric Gold + Lightning) -->
+          <div id="start-exercise-card" class="rounded-2xl transition-all">
+            ${!isSessionStarted() ? `
+              <button onclick="toggleWorkoutTimer()" class="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 text-stone-950 shadow-md flex items-center justify-between gap-3 text-left border border-amber-300/60">
+                <div class="flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-xl bg-stone-950/12 flex items-center justify-center text-xl">⚡</span>
+                  <div>
+                    <div class="text-sm font-extrabold tracking-tight">Start the Exercise</div>
+                    <div class="text-xs text-stone-900/80 font-medium">Let's go, Živilė — ignite your session!</div>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-stone-950/12 text-xs font-mono font-bold">00:00</span>
+              </button>
+            ` : `
+              <div class="px-4 py-3 rounded-2xl bg-[var(--card)] border-2 ${state.timerRunning ? 'border-amber-400/80 shadow-sm' : 'border-amber-400/35'} flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <span class="w-10 h-10 rounded-xl bg-amber-400/20 flex items-center justify-center text-xl ${state.timerRunning ? 'animate-pulse' : 'opacity-60'}">⚡</span>
+                  <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wide text-amber-500">${state.timerRunning ? 'Power Mode Active' : 'Timer Paused'}</div>
+                    <div id="timer-display" class="text-lg font-extrabold font-mono tabular-nums leading-tight">${formatTimer(getElapsedSeconds())}</div>
+                  </div>
+                </div>
+                <button onclick="toggleWorkoutTimer()" class="px-3.5 py-2 rounded-xl text-xs font-bold border ${state.timerRunning ? 'bg-[var(--background)] border-[var(--border)] text-[var(--foreground)]' : 'bg-gradient-to-r from-amber-300 to-yellow-400 border-amber-300 text-stone-950'}">
+                  ${state.timerRunning ? '⏸ Pause' : '⚡ Resume'}
+                </button>
+              </div>
+            `}
+          </div>
+
+          <!-- Cumulative 3-Workout-Week Royal Progress Strip -->
+          <button onclick="setTab('crown')" class="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-between gap-2 text-left">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-base">${rank.emoji}</span>
+              <div class="truncate">
+                <span class="text-xs font-bold">${rank.title}</span>
+                <span class="text-xs text-[var(--muted-foreground)]"> · Wk ${getCompletedWeeks()} (${getWeekSlotProgress()}/3)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${[1, 2, 3].map(n => `
+                <span class="w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${n <= getWeekSlotProgress() ? 'bg-[var(--success)] text-white' : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)]'}">
+                  ${n <= getWeekSlotProgress() ? '✓' : n}
+                </span>
+              `).join('')}
+            </div>
+          </button>
+
+          <!-- Day Switcher (Rose Pink for Lower Day, Light Green for Upper Day) -->
+          <div class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <button onclick="setDay('lower')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'lower' ? 'bg-rose-500 text-white shadow-sm' : 'text-[var(--muted-foreground)]'}">
+              Lower Day ${state.nextDay === 'lower' ? '•' : ''}
+            </button>
+            <button onclick="setDay('upper')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'upper' ? 'bg-emerald-400 text-emerald-950 shadow-sm' : 'text-[var(--muted-foreground)]'}">
+              Upper Day ${state.nextDay === 'upper' ? '•' : ''}
+            </button>
+          </div>
+
+          <!-- Session Progress Strip -->
+          <div class="p-3.5 rounded-2xl bg-[var(--card)] border ${dayKey === 'lower' ? 'border-rose-500/30' : 'border-emerald-400/40'} space-y-2 transition-colors">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-medium text-[var(--foreground)]">${stats.doneExercises}/${stats.totalExercises} exercises done (${stats.pct}%)</span>
+              <div class="flex items-center gap-2">
+                ${stats.prCount > 0 ? `<span class="font-semibold text-[var(--warning)]">👑 ${stats.prCount} PR</span>` : ''}
+                <span class="font-semibold text-[var(--success)]">⬆ ${stats.readyCount} ready</span>
+              </div>
+            </div>
+            <div class="w-full h-2 rounded-full bg-[var(--background)] overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-300 ${stats.pct === 100 ? 'bg-[var(--success)]' : dayKey === 'lower' ? 'bg-rose-500' : 'bg-emerald-400'}" style="width: ${stats.pct}%"></div>
+            </div>
+          </div>
+        </header>
+
+        <section class="mb-5">
+          ${renderWarmupCard(dayKey)}
+        </section>
+
+        <main class="space-y-5">
+          ${workout.zones.map(zone => {
+            const zoneExs = workout.exercises.filter(e => e.zone === zone.id);
+            return `
+              <section class="space-y-2.5">
+                <div class="flex items-center justify-between px-1">
+                  <h2 class="text-xs font-bold uppercase tracking-wider ${dayKey === 'lower' ? 'text-rose-500' : 'text-emerald-500'}">${zone.name}</h2>
+                  <span class="text-xs text-[var(--muted-foreground)]">${zoneExs.length} exercises</span>
+                </div>
+                <div class="space-y-2.5">
+                  ${zoneExs.map(ex => renderExerciseCard(dayKey, ex)).join('')}
+                </div>
+              </section>
+            `;
+          }).join('')}
+
+          <div class="pt-3 pb-4">
+            <button onclick="finishWorkout()" class="w-full py-3.5 rounded-2xl ${dayKey === 'lower' ? 'bg-rose-500 text-white' : 'bg-emerald-400 text-emerald-950'} text-sm font-bold shadow-sm">
+              Finish ${workout.title} &amp; Celebrate 🎉
+            </button>
+          </div>
+        </main>
+      `;
+    }
+
+    function renderHistoryView() {
+      const rot = ROTATION_LABELS[state.rotationIndex];
+      const totalIncreases = state.history.reduce((s, h) => s + (h.readyCount || 0), 0);
+      const totalPRs = state.history.reduce((s, h) => s + (h.prCount || 0), 0);
+      const durSessions = state.history.filter(h => h.durationMin != null);
+      const avgDuration = durSessions.length ? Math.round(durSessions.reduce((s, h) => s + h.durationMin, 0) / durSessions.length) : 0;
+      const fullSessions = state.history.filter(h => !h.partial).length;
+      const partialSessions = state.history.filter(h => h.partial).length;
+      const isDur = state.historyChartMode === 'duration';
+
+      return `
+        <header class="mb-4 flex items-center justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="text-xs text-[var(--muted-foreground)] truncate">Next: <span class="text-[var(--primary)] font-semibold">${rot.week} · ${state.workouts[state.nextDay].title}</span></div>
+            <h1 class="text-xl font-bold tracking-tight mt-0.5 truncate">Živilė's Progress 📈</h1>
+          </div>
+          <button onclick="requestResetAllData()" class="px-3 h-9 rounded-xl bg-[var(--card)] border border-[var(--border)] text-xs font-medium text-[var(--muted-foreground)] shrink-0">
+            Reset
+          </button>
+        </header>
+
+        <!-- Interactive Fluid Line Progress Card -->
+        <section class="mb-4 p-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-3">
+          <div>
+            <div class="text-sm font-bold">Progression Timeline</div>
+            <div class="text-xs text-[var(--muted-foreground)]">Tap or slide along the line to inspect dates</div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+              <div class="text-base font-bold font-mono tabular-nums text-[var(--success)]">${totalIncreases}</div>
+              <div class="text-[11px] text-[var(--muted-foreground)]">Weight Jumps</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+              <div class="text-base font-bold font-mono tabular-nums text-[var(--warning)]">${avgDuration ? `${avgDuration}m` : '—'}</div>
+              <div class="text-[11px] text-[var(--muted-foreground)]">Avg Duration</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-center">
+              <div class="text-base font-bold font-mono tabular-nums text-[var(--primary)]">${totalPRs}</div>
+              <div class="text-[11px] text-[var(--muted-foreground)]">PRs Unlocked</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+            <button onclick="setHistoryChartMode('milestones')" class="py-1.5 rounded-lg text-xs font-semibold transition-colors ${!isDur ? 'bg-[var(--card)] text-[var(--foreground)] shadow-xs' : 'text-[var(--muted-foreground)]'}">
+              ⬆ Milestones &amp; PRs
+            </button>
+            <button onclick="setHistoryChartMode('duration')" class="py-1.5 rounded-lg text-xs font-semibold transition-colors ${isDur ? 'bg-[var(--card)] text-[var(--foreground)] shadow-xs' : 'text-[var(--muted-foreground)]'}">
+              ⏱ Workout Time
+            </button>
+          </div>
+
+          <div id="chart-readout" class="px-3 py-1.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs text-center text-[var(--muted-foreground)]"></div>
+
+          <div class="w-full h-44 touch-none cursor-crosshair">
+            <canvas id="milestones-chart" class="w-full h-full"></canvas>
+          </div>
+
+          <div class="flex items-center justify-center gap-4 text-xs text-[var(--muted-foreground)]">
+            ${isDur ? `
+              <span class="inline-flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-[var(--warning)]"></span>Workout Duration (min)</span>
+            ` : `
+              <span class="inline-flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-[var(--success)]"></span>Weight Increases (⬆)</span>
+              <span class="inline-flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-[var(--primary)]"></span>PRs Hit (👑)</span>
+            `}
+          </div>
+        </section>
+
+        <!-- Completed Sessions List -->
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between px-1">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Completed Sessions</h2>
+            <span class="text-xs text-[var(--muted-foreground)]">${state.history.length ? `${fullSessions} full · ${partialSessions} partial` : '0 logged'}</span>
+          </div>
+
+          ${state.history.length === 0 ? `
+            <div class="p-5 rounded-2xl bg-[var(--card)] border border-[var(--border)] text-center space-y-1.5">
+              <div class="text-xl">🏋️</div>
+              <div class="text-sm font-semibold">Ready for your first session</div>
+              <div class="text-xs text-[var(--muted-foreground)]">Finish a Lower or Upper Day to log it here, record duration &amp; completion rate, and celebrate!</div>
+            </div>
+          ` : `
+            <div class="space-y-2.5">
+              ${state.history.map(item => {
+                const open = expandedHistoryId === item.id;
+                const exDone = item.doneExercises ?? item.exercises.length;
+                const exTotal = item.totalExercises ?? item.exercises.length;
+                return `
+                  <div class="rounded-2xl bg-[var(--card)] border ${item.partial ? 'border-[var(--warning)]/40' : 'border-[var(--border)]'} overflow-hidden">
+                    <button onclick="toggleHistory('${item.id}')" class="w-full p-4 text-left flex items-center justify-between gap-3">
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="text-sm font-semibold">${escapeHtml(item.title)}</span>
+                          ${item.partial
+                            ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--warning)]/15 text-[var(--warning)]">Partial ${exDone}/${exTotal}</span>`
+                            : `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--success)]/15 text-[var(--success)]">✓ Full</span>`
+                          }
+                        </div>
+                        <div class="text-xs text-[var(--muted-foreground)] mt-0.5">${escapeHtml(item.date)} at ${escapeHtml(item.time)}${item.durationMin != null ? ` · ⏱ ${item.durationMin}m` : ''}</div>
+                      </div>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        ${item.prCount ? `<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--warning)]/15 text-[var(--warning)]">👑 ${item.prCount}</span>` : ''}
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--success)]/15 text-[var(--success)]">⬆ ${item.readyCount}</span>
+                        <span class="text-xs text-[var(--muted-foreground)]">${open ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+                    ${open ? `
+                      <div class="px-4 pb-4 pt-2 border-t border-[var(--border)] space-y-2">
+                        ${item.exercises.map(ex => `
+                          <div class="flex items-center justify-between text-xs py-1 border-b border-[var(--border)]/50 last:border-0">
+                            <div class="min-w-0 pr-2">
+                              <span class="font-medium">${escapeHtml(ex.name)}</span>
+                              ${ex.pr ? `<span class="ml-1">👑</span>` : ''}
+                              ${ex.status === 'increase' ? `<span class="ml-1 text-[var(--success)] font-semibold">⬆</span>` : ''}
+                            </div>
+                            <div class="font-mono tabular-nums text-[var(--muted-foreground)] shrink-0">
+                              ${fmtWeight(ex.weight)} · ${ex.sets.map(s => s ?? '–').join('/')}
+                            </div>
+                          </div>
+                        `).join('')}
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </section>
+      `;
+    }
+
+    function renderRulesView() {
+      return `
+        <header class="mb-4">
+          <div class="text-xs text-[var(--muted-foreground)]">From your Overview &amp; Rules tab</div>
+          <h1 class="text-xl font-bold tracking-tight mt-0.5">Plan Rules</h1>
+        </header>
+
+        <div class="space-y-3 text-xs">
+          <div class="p-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-2">
+            <div class="text-sm font-semibold">📅 3-Day Alternating Split</div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Week A:</strong> Lower (Mon) · Upper (Wed) · Lower (Fri)</p>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Week B:</strong> Upper (Mon) · Lower (Wed) · Upper (Fri)</p>
+            <p class="text-[var(--muted-foreground)] leading-relaxed">Always keep at least 1 full rest day between sessions.</p>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-2">
+            <div class="text-sm font-semibold">📈 Progressive Overload</div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>RIR 1–2:</strong> Stop each working set 1–2 reps short of technical failure.</p>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Trigger:</strong> When EVERY set hits Top Reps, increase weight next session.</p>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Jumps:</strong> Upper compounds +2.5–5 kg · Lower compounds +5–10 kg.</p>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-2">
+            <div class="text-sm font-semibold">🛡️ Deload &amp; Short-on-Time</div>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Short-on-Time (~45m):</strong> Skip lifts tagged <em>Optional</em> and do 2 sets per Ab exercise.</p>
+            <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Deload (every 6–8 wks):</strong> Drop weights by 10% and perform 1–2 easy working sets.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCrownView() {
+      const weeks = getCompletedWeeks();
+      const total = state.totalWorkouts || 0;
+      const { current, next } = getCurrentRoyalRank(weeks);
+      const pctToNext = next
+        ? Math.min(100, Math.round(((total - current.minWeeks * 3) / ((next.minWeeks - current.minWeeks) * 3)) * 100))
+        : 100;
+      const workoutsToNext = next ? Math.max(0, next.minWeeks * 3 - total) : 0;
+      const revealed = state.revealedRewardIds || [];
+      const claimed = state.claimedRewardIds || [];
+      const unlockedRewards = MYSTERY_REWARDS.filter(r => weeks >= r.week).length;
+      const inDeloadWindow = (weeks >= 7 && weeks <= 8) || (weeks >= 15 && weeks <= 16);
+
+      return `
+        <header class="mb-4">
+          <div class="text-xs text-[var(--muted-foreground)]">Cumulative · Every 3 workouts = +1 week (never resets)</div>
+          <h1 class="text-xl font-bold tracking-tight mt-0.5">Živilė's Royal Crown 👑</h1>
+        </header>
+
+        <!-- Royal Title Hero Card -->
+        <section class="mb-5 p-5 rounded-3xl bg-gradient-to-br from-amber-300/20 via-rose-400/15 to-emerald-400/15 border border-amber-400/40 space-y-3">
+          <div class="flex items-center gap-3.5">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-300 to-yellow-400 text-stone-950 flex items-center justify-center text-3xl shadow-sm shrink-0">
+              ${current.emoji}
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-amber-500">${weeks > 20 ? `Week ${weeks} (Crown Complete)` : `Week ${weeks} of 20`} · ${total} workouts</div>
+              <div class="text-lg font-extrabold tracking-tight leading-snug">${current.title}</div>
+              <div class="text-xs text-[var(--muted-foreground)] mt-0.5">${current.desc}</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-[var(--muted-foreground)]">${next ? `Next: <strong class="text-[var(--foreground)]">${next.emoji} ${next.title}</strong>` : 'Max Royal Rank Achieved! 🏆'}</span>
+              <span class="font-mono font-semibold text-amber-500">${next ? `${workoutsToNext} workouts to go` : '100%'}</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-[var(--background)] overflow-hidden">
+              <div class="h-full rounded-full bg-gradient-to-r from-amber-400 to-rose-400 transition-all duration-300" style="width: ${pctToNext}%"></div>
+            </div>
+          </div>
+
+          ${inDeloadWindow ? `
+            <div class="p-2.5 rounded-xl bg-[var(--card)]/90 border border-[var(--border)] flex items-center gap-2 text-xs">
+              <span>🛡️</span>
+              <span class="text-[var(--muted-foreground)]"><strong class="text-[var(--foreground)]">Deload Window:</strong> Great time for a lighter recovery week (-10% weight, 1–2 sets).</span>
+            </div>
+          ` : ''}
+        </section>
+
+        <!-- Secret Mystery Surprises from Fiancé -->
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between px-1">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-rose-500">🎁 Secret Surprises from Fiancé</h2>
+            <span class="text-xs text-[var(--muted-foreground)]">${unlockedRewards}/${MYSTERY_REWARDS.length} unlocked</span>
+          </div>
+
+          <div class="space-y-2.5">
+            ${MYSTERY_REWARDS.map(r => {
+              const unlocked = weeks >= r.week;
+              const isClaimed = claimed.includes(r.id);
+              const isRevealed = revealed.includes(r.id) || isClaimed;
+              return `
+                <button
+                  onclick="openVoucher('${r.id}')"
+                  class="w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all ${
+                    isClaimed
+                      ? 'bg-[var(--card)] border-[var(--success)]/40 opacity-75'
+                      : unlocked
+                        ? 'bg-[var(--card)] border-amber-400/60 shadow-sm'
+                        : 'bg-[var(--card)]/60 border-[var(--border)] opacity-60 cursor-default'
+                  }"
+                >
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${unlocked ? 'bg-amber-400/20' : 'bg-[var(--background)]'}">
+                      ${isRevealed && unlocked ? r.emoji : unlocked ? '🎁' : '🔒'}
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-sm font-bold leading-snug ${isClaimed ? 'line-through text-[var(--muted-foreground)]' : ''}">${isRevealed && unlocked ? r.title : r.hiddenLabel}</div>
+                      <div class="text-xs text-[var(--muted-foreground)] mt-0.5">${unlocked ? (isRevealed ? 'Tap to view voucher 💖' : 'Tap Claim Reward to unwrap! ✨') : `Unlocks at Week ${r.week} (${r.week * 3} workouts)`}</div>
+                    </div>
+                  </div>
+                  <div class="shrink-0">
+                    ${isClaimed
+                      ? `<span class="px-2 py-1 rounded-lg text-[11px] font-bold bg-[var(--success)]/15 text-[var(--success)]">Claimed ✓</span>`
+                      : unlocked
+                        ? `<span class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-gradient-to-r from-amber-300 to-yellow-400 text-stone-950">Claim Reward</span>`
+                        : `<span class="text-xs font-mono text-[var(--muted-foreground)]">Wk ${r.week}</span>`
+                    }
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderBottomNav() {
+      const unclaimed = getUnclaimedRewardCount();
+      const tabs = [
+        { id: 'workout', label: 'Workout', icon: '⚡' },
+        { id: 'history', label: 'History', icon: '📈' },
+        { id: 'crown', label: 'Crown', icon: '👑', badge: unclaimed },
+        { id: 'rules', label: 'Rules', icon: '📋' }
+      ];
+      return `
+        <nav class="fixed bottom-0 left-0 right-0 bg-[var(--card)]/95 backdrop-blur border-t border-[var(--border)] z-40 safe-bottom-nav">
+          <div class="max-w-[430px] mx-auto grid grid-cols-4 pt-2 px-3">
+            ${tabs.map(t => `
+              <button onclick="setTab('${t.id}')" class="relative flex flex-col items-center gap-0.5 py-1 rounded-xl ${state.activeTab === t.id ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted-foreground)]'}">
+                <span class="relative text-base leading-none">
+                  ${t.icon}
+                  ${t.badge ? `<span class="absolute -top-1 -right-2 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-[var(--card)]"></span>` : ''}
+                </span>
+                <span class="text-xs">${t.label}</span>
+              </button>
+            `).join('')}
+          </div>
+        </nav>
+      `;
+    }
+
+    function render() {
+      const root = document.getElementById('app');
+      let body = '';
+      if (state.activeTab === 'workout') body = renderWorkoutView();
+      else if (state.activeTab === 'crown') body = renderCrownView();
+      else if (state.activeTab === 'history') body = renderHistoryView();
+      else body = renderRulesView();
+
+      root.innerHTML = body + renderBottomNav();
+      syncAllDoneBanner();
+
+      if (warmupAnimFrom !== null) {
+        const bar = document.getElementById('warmup-bar');
+        if (bar) {
+          const targetPct = bar.getAttribute('data-target-pct');
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              bar.style.width = `${targetPct}%`;
+            });
+          });
+        }
+        warmupAnimFrom = null;
+        warmupJustFinished = false;
+      }
+
+      if (state.activeTab === 'history') {
+        requestAnimationFrame(animateMilestonesChart);
+      }
+    }
+
+    try {
+      render();
+      checkStaleSession();
+    } catch {
+      state = structuredClone(DEFAULT_DATA);
+      saveState();
+      render();
+    }
+  </script>
+</body>
+</html>
