@@ -245,6 +245,8 @@
 
   <script>
     const STORAGE_KEY = 'gym_tracker_zivile_v6';
+    const SYNC_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSf1pitXg6B0Zxite2YZ5s86XVwY1jI00juK0m2_E2XXA9MPFQ/formResponse';
+    const SYNC_FIELD_NAME = 'entry.154194078';
 
     const ROYAL_RANKS = [
       { minWeeks: 0, title: 'Gym Newcomer', emoji: '🌱', desc: 'Every queen starts with Day 1.' },
@@ -293,6 +295,7 @@
       lastActivityAt: null,
       bannerDismissedDay: null,
       historyChartMode: 'milestones',
+      pendingSyncQueue: [],
       workouts: {
         lower: {
           title: 'Lower Day',
@@ -540,6 +543,9 @@
         : [];
       base.history = Array.isArray(raw.history)
         ? raw.history.filter(h => h && typeof h === 'object' && Array.isArray(h.exercises))
+        : [];
+      base.pendingSyncQueue = Array.isArray(raw.pendingSyncQueue)
+        ? raw.pendingSyncQueue.filter(item => item && typeof item === 'object')
         : [];
 
       if (raw.workouts && typeof raw.workouts === 'object') {
@@ -1128,6 +1134,29 @@
       state.totalWorkouts = (state.totalWorkouts || 0) + 1;
       const nextWeeks = getCompletedWeeks();
       const newlyUnlockedReward = MYSTERY_REWARDS.find(r => r.week > prevWeeks && r.week <= nextWeeks);
+
+      // Enqueue silent Google Sheet sync (with offline retry)
+      enqueueSheetSync({
+        id: snapshot.id,
+        date: snapshot.date,
+        time: snapshot.time,
+        day: snapshot.title,
+        status: snapshot.partial ? `Partial (${snapshot.doneExercises}/${snapshot.totalExercises})` : `Full (${snapshot.doneExercises}/${snapshot.totalExercises})`,
+        durationMin: snapshot.durationMin,
+        weightJumps: snapshot.readyCount,
+        prs: snapshot.prCount,
+        totalWorkouts: state.totalWorkouts,
+        crownWeek: nextWeeks,
+        exercises: snapshot.exercises.map(e => ({
+          name: e.name,
+          wt: e.weight,
+          sets: e.sets,
+          done: e.completed,
+          status: e.status,
+          pr: e.pr,
+          note: e.note || undefined
+        }))
+      });
 
       // Roll weights & bests ONLY for exercises that had >= 1 logged set
       workout.exercises.forEach(ex => {
@@ -2703,9 +2732,50 @@
       }
     }
 
+    // ================= SILENT GOOGLE SHEET SYNC (OFFLINE RETRY QUEUE) =================
+    let syncInFlight = false;
+
+    function enqueueSheetSync(payload) {
+      state.pendingSyncQueue = state.pendingSyncQueue || [];
+      state.pendingSyncQueue.push(payload);
+      saveState();
+      flushSyncQueue();
+    }
+
+    async function flushSyncQueue() {
+      if (syncInFlight || !state.pendingSyncQueue || !state.pendingSyncQueue.length) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      syncInFlight = true;
+      try {
+        while (state.pendingSyncQueue.length > 0) {
+          const item = state.pendingSyncQueue[0];
+          const body = new URLSearchParams();
+          body.append(SYNC_FIELD_NAME, JSON.stringify(item));
+          await fetch(SYNC_FORM_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+          state.pendingSyncQueue.shift();
+          saveState();
+        }
+      } catch {
+        // Keep remaining items in queue; will retry on next open/online event
+      } finally {
+        syncInFlight = false;
+      }
+    }
+
+    window.addEventListener('online', flushSyncQueue);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') flushSyncQueue();
+    });
+
     try {
       render();
       checkStaleSession();
+      flushSyncQueue();
     } catch {
       state = structuredClone(DEFAULT_DATA);
       saveState();
