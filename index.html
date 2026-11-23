@@ -183,6 +183,27 @@
     </div>
   </div>
 
+  <!-- Pre-Start Parking Check Modal -->
+  <div id="parking-check-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs px-4">
+    <div class="max-w-[340px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] p-5 shadow-2xl space-y-4 animate-pop">
+      <div class="flex items-start gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-sky-500/15 text-sky-500 flex items-center justify-center text-xl font-bold shrink-0">🅿️</div>
+        <div>
+          <h3 class="text-base font-bold text-[var(--foreground)]">Did you pay for parking?</h3>
+          <p class="text-xs text-[var(--muted-foreground)] mt-1 leading-relaxed">Quick reminder before your workout timer starts, Živilė!</p>
+        </div>
+      </div>
+      <div class="space-y-2 pt-1">
+        <button onclick="confirmParkingAndStart()" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 text-stone-950 text-xs font-extrabold shadow-sm">
+          ✓ Yes, Parking Paid — Let's Go! ⚡
+        </button>
+        <button onclick="closeParkingCheck()" class="w-full py-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-semibold text-[var(--foreground)]">
+          🅿️ Wait, let me pay first
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Finish Early Confirmation Modal -->
   <div id="confirm-early-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs px-4">
     <div class="max-w-[340px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] p-5 shadow-2xl space-y-4 animate-pop">
@@ -1286,6 +1307,29 @@
     }
 
     function startWorkoutWithCountdown() {
+      const modal = document.getElementById('parking-check-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        return;
+      }
+      beginWorkoutCountdown();
+    }
+
+    function closeParkingCheck() {
+      const modal = document.getElementById('parking-check-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function confirmParkingAndStart() {
+      closeParkingCheck();
+      beginWorkoutCountdown();
+    }
+
+    function beginWorkoutCountdown() {
       const overlay = document.getElementById('start-countdown');
       const numEl = document.getElementById('countdown-num');
       const labelEl = document.getElementById('countdown-label');
