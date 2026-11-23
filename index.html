@@ -81,18 +81,31 @@
     .animate-ready { animation: readySlideIn 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
     @keyframes giftShake {
       0%, 100% { transform: rotate(0deg) scale(1); }
-      15% { transform: rotate(-10deg) scale(1.06); }
-      30% { transform: rotate(10deg) scale(1.1); }
-      45% { transform: rotate(-12deg) scale(1.14); }
-      60% { transform: rotate(12deg) scale(1.18); }
-      75% { transform: rotate(-8deg) scale(1.22); }
-      90% { transform: rotate(6deg) scale(1.26); }
+      15% { transform: rotate(-7deg) scale(1.04); }
+      30% { transform: rotate(7deg) scale(1.07); }
+      45% { transform: rotate(-9deg) scale(1.1); }
+      60% { transform: rotate(9deg) scale(1.13); }
+      75% { transform: rotate(-5deg) scale(1.15); }
+      90% { transform: rotate(4deg) scale(1.12); }
+    }
+    @keyframes lidPopOpen {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      35% { transform: translateY(-10px) rotate(-6deg); opacity: 1; }
+      75% { transform: translateY(-34px) rotate(-18deg) scale(1.05); opacity: 0.95; }
+      100% { transform: translateY(-48px) rotate(-24deg) scale(0.95); opacity: 0; }
+    }
+    @keyframes innerGlowRise {
+      0% { transform: translateY(16px) scale(0.4); opacity: 0; }
+      50% { transform: translateY(-6px) scale(1.1); opacity: 1; }
+      100% { transform: translateY(-22px) scale(1.3); opacity: 0.9; }
     }
     @keyframes rewardBurstIn {
       0% { transform: scale(0.35) rotate(-8deg); opacity: 0; }
       65% { transform: scale(1.12) rotate(3deg); opacity: 1; }
       100% { transform: scale(1) rotate(0deg); opacity: 1; }
     }
+    .animate-lid-open { animation: lidPopOpen 950ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .animate-inner-glow { animation: innerGlowRise 950ms ease-out forwards; }
     .animate-gift-shake { animation: giftShake 820ms ease-in-out forwards; }
     .animate-reward-reveal { animation: rewardBurstIn 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
   </style>
@@ -167,6 +180,22 @@
     </div>
   </div>
 
+  <!-- 3-Second Pre-Workout Countdown Overlay -->
+  <div id="start-countdown" onclick="skipCountdown()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm cursor-pointer px-4">
+    <canvas id="countdown-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+    <div class="relative z-10 flex flex-col items-center text-center space-y-4">
+      <div class="relative w-36 h-36 flex items-center justify-center">
+        <svg class="w-36 h-36 -rotate-90" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="8" />
+          <circle id="countdown-ring" cx="60" cy="60" r="52" fill="none" stroke="#facc15" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="0" />
+        </svg>
+        <div id="countdown-num" class="absolute text-5xl font-black text-amber-300 tracking-tight">3</div>
+      </div>
+      <div id="countdown-label" class="text-base font-extrabold text-white tracking-tight">Get ready, Queen Živilė! ⚡</div>
+      <div class="text-[11px] text-white/60">Tap anywhere to start immediately</div>
+    </div>
+  </div>
+
   <!-- Smart Stale-Session Recovery Modal -->
   <div id="recover-session-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/55 backdrop-blur-xs px-4">
     <div class="max-w-[340px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border border-[var(--border)] p-5 shadow-2xl space-y-4 animate-pop">
@@ -218,10 +247,23 @@
   <div id="voucher-modal" onclick="closeVoucher()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/65 backdrop-blur-xs px-4 cursor-pointer">
     <canvas id="reveal-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
     <div onclick="event.stopPropagation()" class="relative z-10 max-w-[336px] w-full max-h-[90dvh] overflow-y-auto rounded-3xl bg-[var(--card)] border-2 border-amber-400/70 p-6 text-center shadow-2xl animate-pop">
-      <div id="v-unwrap-stage" class="hidden py-8 space-y-3">
-        <div id="v-gift-box" class="text-6xl inline-block">🎁</div>
-        <div class="text-sm font-extrabold text-amber-500 tracking-tight">Unwrapping your surprise, Živilė...</div>
-        <div class="text-xs text-[var(--muted-foreground)]">✨ Get ready ✨</div>
+      <div id="v-unwrap-stage" class="hidden py-6 space-y-4">
+        <div id="v-gift-box" class="relative w-28 h-28 mx-auto flex items-center justify-center">
+          <div id="v-gift-glow" class="hidden absolute -top-2 text-3xl">✨</div>
+          <svg class="w-24 h-24 overflow-visible" viewBox="0 0 100 100">
+            <rect x="16" y="42" width="68" height="46" rx="8" fill="#fb7185" />
+            <rect x="44" y="42" width="12" height="46" fill="#facc15" />
+            <g id="v-gift-lid" style="transform-origin: 20px 38px;">
+              <rect x="11" y="28" width="78" height="16" rx="5" fill="#f43f5e" />
+              <rect x="44" y="28" width="12" height="16" fill="#fde047" />
+              <path d="M50 28 C34 10, 22 24, 42 28 Z" fill="#fde047" />
+              <path d="M50 28 C66 10, 78 24, 58 28 Z" fill="#facc15" />
+              <circle cx="50" cy="27" r="4.5" fill="#fef08a" />
+            </g>
+          </svg>
+        </div>
+        <div id="v-unwrap-text" class="text-sm font-extrabold text-amber-500 tracking-tight">Untying the ribbon, Živilė...</div>
+        <div class="text-xs text-[var(--muted-foreground)]">✨ Something special is inside ✨</div>
       </div>
 
       <div id="v-reveal-stage" class="space-y-3">
@@ -262,7 +304,7 @@
       { id: 'r2', week: 5, hiddenLabel: 'Mystery Surprise #2', emoji: '💐', title: 'Flowers & Home Massage Night', desc: '5-week Consistency Queen! Fresh flowers + a relaxing back & shoulder massage.' },
       { id: 'r3', week: 9, hiddenLabel: 'Mystery Surprise #3', emoji: '🍽️', title: 'Queen’s Choice Dinner Date', desc: '9 weeks strong (Block 1 complete)! You pick the restaurant, zero dishes, dressed up like royalty.' },
       { id: 'r4', week: 14, hiddenLabel: 'Mystery Surprise #4', emoji: '🛍️', title: 'New Gym Outfit / Activewear', desc: '14 cumulative weeks of showing up! Pick a new gym set or leggings to celebrate your progress.' },
-      { id: 'r5', week: 20, hiddenLabel: 'Grand Empress Surprise', emoji: '🧖‍♀️', title: 'Full Spa Day / Weekend Getaway', desc: '20-week Unstoppable Empress (60 workouts)! A full pampering spa day or mini getaway together.' }
+      { id: 'r5', week: 20, hiddenLabel: 'Grand Empress Surprise', emoji: '👑', title: 'Royal Spa Day & Weekend Getaway', desc: '20-week Unstoppable Empress (60 workouts)! A full luxury spa day or relaxing weekend getaway together.' }
     ];
 
     const ROTATION_LABELS = [
@@ -294,6 +336,7 @@
       sessionDayKey: null,
       lastActivityAt: null,
       bannerDismissedDay: null,
+      sessionMode: 'standard', // 'standard' | 'quick' | 'deload'
       historyChartMode: 'milestones',
       pendingSyncQueue: [],
       workouts: {
@@ -310,70 +353,70 @@
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
               cue: 'Warm-up: 1-2 light ramp-up sets. Feet slightly forward, hips back, control descent.',
               rampUp: true, bump: 5,
-              prevWeight: 15, bestWeight: 15, weight: 15, sets: [null, null, null], note: 'Smith machine', completed: false
+              prevWeight: 15, bestWeight: 15, weight: 15, prevSets: [10, 10, 10], sets: [null, null, null], note: 'Smith machine', completed: false
             },
             {
               id: 'lower-2', zone: 'lz1', name: 'Romanian Deadlift', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
               cue: 'Warm-up: 1 light warm-up set. Soft knees, hinge hips back, maintain neutral spine.',
               rampUp: true, bump: 5,
-              prevWeight: 10, bestWeight: 10, weight: 10, sets: [null, null, null], note: 'Laisva stanga', completed: false
+              prevWeight: 10, bestWeight: 10, weight: 10, prevSets: [10, 10, 10], sets: [null, null, null], note: 'Laisva stanga', completed: false
             },
             {
               id: 'lower-3', zone: 'lz2', name: 'Hip Thrust Machine', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '90 sec',
               cue: 'Pad at hip crease, shins vertical at top lockout, hard 1-sec glute squeeze.',
               rampUp: false, bump: 5,
-              prevWeight: null, bestWeight: 30, weight: 30, sets: [null, null, null], note: '', completed: false
+              prevWeight: null, bestWeight: 30, weight: 30, prevSets: [10, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'lower-4', zone: 'lz2', name: 'Single-Leg Press', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10 / leg', topReps: 10, unit: 'reps', rest: '90 sec',
               cue: 'Replaces lunges. Start with weaker leg, match reps on stronger leg, mid-platform foot.',
               rampUp: false, bump: 5,
-              prevWeight: 20, bestWeight: 20, weight: 20, sets: [null, null, null], note: '', completed: false
+              prevWeight: 20, bestWeight: 20, weight: 20, prevSets: [10, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'lower-5', zone: 'lz2', name: 'Seated Hamstring Curl', type: 'Core Lift',
               targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
               cue: 'Thigh pad firmly clamped, dorsiflex toes, 2-sec eccentric return.',
               rampUp: false, bump: 2.5,
-              prevWeight: null, bestWeight: 30, weight: 30, sets: [null, null, null], note: '', completed: false
+              prevWeight: null, bestWeight: 30, weight: 30, prevSets: [8, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'lower-6', zone: 'lz2', name: 'Knee Extension', type: 'Core Lift',
               targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
               cue: 'Align knee joint with machine pivot, controlled lockout, avoid hip lift.',
               rampUp: false, bump: 2.5,
-              prevWeight: 20, bestWeight: 20, weight: 20, sets: [null, null, null], note: '', completed: false
+              prevWeight: 20, bestWeight: 20, weight: 20, prevSets: [10, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'lower-7', zone: 'lz2', name: 'Calf Raises (Machine)', type: 'Core Lift',
               targetSets: 3, targetReps: '10 - 15', topReps: 15, unit: 'reps', rest: '60 sec',
               cue: 'Full heel drop for deep stretch, pause 1 sec at bottom, explosive drive.',
               rampUp: false, bump: 5,
-              prevWeight: null, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+              prevWeight: null, bestWeight: 0, weight: 0, prevSets: [15, 15, 14], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'lower-8', zone: 'lz2', name: 'Back Extension', type: 'Optional Lift',
               targetSets: 2, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60 sec',
               cue: 'Optional for Short-on-Time. Slow controlled tempo, stop at straight neutral line.',
               rampUp: false, bump: 2.5,
-              prevWeight: 10, bestWeight: 10, weight: 10, sets: [null, null], note: '', completed: false
+              prevWeight: 10, bestWeight: 10, weight: 10, prevSets: [10, 10], sets: [null, null], note: '', completed: false
             },
             {
               id: 'lower-9', zone: 'lz2', name: 'Cable Crunches', type: 'Ab Finisher',
               targetSets: 3, targetReps: '10 - 15', topReps: 15, unit: 'reps', rest: '45-60 sec',
               cue: 'Lower ab finisher. Hips locked high, flex spine to pull elbows to thighs.',
               rampUp: false, bump: 2.5,
-              prevWeight: null, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+              prevWeight: null, bestWeight: 0, weight: 0, prevSets: [15, 15, 15], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'lower-10', zone: 'lz2', name: 'Standing Plate Marches / Planks', type: 'Ab Finisher',
               targetSets: 3, targetReps: '30 - 45 sec', topReps: 45, unit: 'sec', rest: '45-60 sec',
               cue: 'Lower ab finisher. High knee drive, tight core brace, avoid lateral torso swaying.',
               rampUp: false, bump: 2.5,
-              prevWeight: null, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+              prevWeight: null, bestWeight: 0, weight: 0, prevSets: [45, 45, 40], sets: [null, null, null], note: '', completed: false
             }
           ]
         },
@@ -390,70 +433,70 @@
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
               cue: 'Warm-up: 1-2 light ramp-up sets. Slight lean back, drive elbows down to ribs, squeeze lats.',
               rampUp: true, bump: 5,
-              prevWeight: 120, bestWeight: 120, weight: 120, sets: [null, null, null], note: '', completed: false
+              prevWeight: 120, bestWeight: 120, weight: 120, prevSets: [10, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-2', zone: 'uz1', name: 'Seated Machine Chest Press', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
               cue: 'Warm-up: 1-2 light ramp-up sets. Handles at mid-chest height, retract scapulae, drive forward.',
               rampUp: true, bump: 5,
-              prevWeight: 130, bestWeight: 130, weight: 130, sets: [null, null, null], note: '', completed: false
+              prevWeight: 130, bestWeight: 130, weight: 130, prevSets: [10, 9, 9], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-3', zone: 'uz1', name: 'Cable Seated Row', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '90 sec',
               cue: 'Neutral V-bar grip, chest tall, pull handles to navel, 1-sec peak contraction.',
               rampUp: false, bump: 5,
-              prevWeight: 110, bestWeight: 110, weight: 110, sets: [null, null, null], note: '', completed: false
+              prevWeight: 110, bestWeight: 110, weight: 110, prevSets: [10, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-4', zone: 'uz1', name: 'Cable Lateral Raise', type: 'Core Lift',
               targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
               cue: 'Set pulley at wrist height, lead with elbows, slight lean forward, control negative.',
               rampUp: false, bump: 2.5,
-              prevWeight: 15, bestWeight: 15, weight: 15, sets: [null, null, null], note: '', completed: false
+              prevWeight: 15, bestWeight: 15, weight: 15, prevSets: [12, 11, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-5', zone: 'uz1', name: 'Triceps Cable Pushdown', type: 'Core Lift',
               targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
               cue: 'Rope attachment, flare ends at lockout, keep upper arms locked against ribs.',
               rampUp: false, bump: 2.5,
-              prevWeight: 50, bestWeight: 50, weight: 50, sets: [null, null, null], note: '', completed: false
+              prevWeight: 50, bestWeight: 50, weight: 50, prevSets: [12, 12, 12], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-6', zone: 'uz1', name: 'Cable Biceps Curl', type: 'Core Lift',
               targetSets: 3, targetReps: '10 - 12', topReps: 12, unit: 'reps', rest: '60-90 sec',
               cue: 'EZ or straight bar attachment, curl smoothly, full stretch at bottom without swinging.',
               rampUp: false, bump: 2.5,
-              prevWeight: 45, bestWeight: 45, weight: 45, sets: [null, null, null], note: '', completed: false
+              prevWeight: 45, bestWeight: 45, weight: 45, prevSets: [12, 12, 11], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-7', zone: 'uz2', name: 'Incline Dumbbell Bench Press', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10', topReps: 10, unit: 'reps', rest: '2 min',
               cue: '30-degree incline bench, elbows flared 45 degrees, deep chest stretch at bottom.',
               rampUp: false, bump: 2.5,
-              prevWeight: 50, bestWeight: 50, weight: 50, sets: [null, null, null], note: '', completed: false
+              prevWeight: 50, bestWeight: 50, weight: 50, prevSets: [10, 10, 10], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-8', zone: 'uz2', name: 'Single-Arm Dumbbell Row', type: 'Core Lift',
               targetSets: 3, targetReps: '8 - 10 / arm', topReps: 10, unit: 'reps', rest: '90 sec',
               cue: 'Flat bench support, pull dumbbell to hip pocket, resist torso rotation.',
               rampUp: false, bump: 2.5,
-              prevWeight: 55, bestWeight: 55, weight: 55, sets: [null, null, null], note: '', completed: false
+              prevWeight: 55, bestWeight: 55, weight: 55, prevSets: [10, 9, 9], sets: [null, null, null], note: '', completed: false
             },
             {
               id: 'upper-9', zone: 'uz2', name: 'Dumbbell Rear Delt Fly', type: 'Optional Lift',
               targetSets: 2, targetReps: '12 - 15', topReps: 15, unit: 'reps', rest: '60 sec',
               cue: 'Optional for Short-on-Time. Chest-supported incline bench, sweep pinkies upward.',
               rampUp: false, bump: 2.5,
-              prevWeight: 15, bestWeight: 15, weight: 15, sets: [null, null], note: '', completed: false
+              prevWeight: 15, bestWeight: 15, weight: 15, prevSets: [15, 15], sets: [null, null], note: '', completed: false
             },
             {
               id: 'upper-10', zone: 'uz2', name: 'Hanging Knee Raises / Decline Crunches', type: 'Ab Finisher',
               targetSets: 3, targetReps: '10 - 15', topReps: 15, unit: 'reps', rest: '45-60 sec',
               cue: 'Upper core finisher. Roll pelvis upward, strict tempo, avoid swinging or momentum.',
               rampUp: false, bump: 2.5,
-              prevWeight: 0, bestWeight: 0, weight: 0, sets: [null, null, null], note: '', completed: false
+              prevWeight: 0, bestWeight: 0, weight: 0, prevSets: [15, 15, 14], sets: [null, null, null], note: '', completed: false
             }
           ]
         }
@@ -537,6 +580,7 @@
       base.sessionDayKey = raw.sessionDayKey === 'upper' || raw.sessionDayKey === 'lower' ? raw.sessionDayKey : null;
       base.lastActivityAt = Number.isFinite(raw.lastActivityAt) ? raw.lastActivityAt : null;
       base.bannerDismissedDay = raw.bannerDismissedDay === 'upper' || raw.bannerDismissedDay === 'lower' ? raw.bannerDismissedDay : null;
+      base.sessionMode = ['standard', 'quick', 'deload'].includes(raw.sessionMode) ? raw.sessionMode : 'standard';
       base.historyChartMode = raw.historyChartMode === 'duration' ? 'duration' : 'milestones';
       base.weeklyMilestones = Array.isArray(raw.weeklyMilestones)
         ? raw.weeklyMilestones.filter(p => p && typeof p === 'object' && typeof p.label === 'string')
@@ -558,6 +602,9 @@
             const sets = Array.isArray(match.sets)
               ? Array.from({ length: defEx.targetSets }, (_, i) => (Number.isFinite(match.sets[i]) && match.sets[i] > 0 ? match.sets[i] : null))
               : defEx.sets;
+            const prevSets = Array.isArray(match.prevSets)
+              ? Array.from({ length: defEx.targetSets }, (_, i) => (Number.isFinite(match.prevSets[i]) && match.prevSets[i] > 0 ? match.prevSets[i] : null))
+              : defEx.prevSets;
             return {
               ...defEx,
               weight: Number.isFinite(match.weight) && match.weight >= 0 ? match.weight : defEx.weight,
@@ -566,6 +613,7 @@
               earnedBump: Boolean(match.earnedBump),
               completed: Boolean(match.completed),
               note: typeof match.note === 'string' ? match.note : defEx.note,
+              prevSets,
               sets
             };
           });
@@ -604,15 +652,50 @@
       }, 2400);
     }
 
+    function getVisibleExercises(dayKey) {
+      const exs = state.workouts[dayKey].exercises;
+      if (state.sessionMode === 'quick') {
+        return exs.filter(ex => ex.type !== 'Optional Lift');
+      }
+      return exs;
+    }
+
+    function getEffectiveTargetSets(ex) {
+      if (state.sessionMode === 'deload') return Math.min(2, ex.targetSets);
+      if (state.sessionMode === 'quick' && ex.type === 'Ab Finisher') return Math.min(2, ex.targetSets);
+      return ex.targetSets;
+    }
+
+    function getDeloadWeight(w) {
+      if (!w || w <= 0) return 0;
+      return Math.max(0, Math.round((w * 0.9) / 2.5) * 2.5);
+    }
+
+    function setSessionMode(mode) {
+      state.sessionMode = mode;
+      const visible = getVisibleExercises(state.activeDay);
+      if (state.expandedId && !visible.some(e => e.id === state.expandedId)) {
+        state.expandedId = visible[0]?.id || null;
+      }
+      saveState();
+      render();
+      const labels = { standard: 'Standard Mode (~60m)', quick: '⚡ Quick Mode (~45m) — Optional lifts hidden', deload: '🛡️ Deload Mode (~40m) — -10% & 2 sets' };
+      showToast(labels[mode] || 'Mode updated');
+    }
+
     function getStatus(ex) {
-      const logged = ex.sets.filter(v => v !== null && v > 0);
+      if (state.sessionMode === 'deload') return ex.completed ? 'deload-done' : 'deload';
+      const effSets = getEffectiveTargetSets(ex);
+      const activeSets = ex.sets.slice(0, effSets);
+      const logged = activeSets.filter(v => v !== null && v > 0);
       if (logged.length === 0) return 'pending';
-      if (logged.length < ex.targetSets) return 'in-progress';
-      const allHitTop = ex.sets.every(v => v !== null && v >= ex.topReps);
+      if (logged.length < effSets) return 'in-progress';
+      const allHitTop = activeSets.every(v => v !== null && v >= ex.topReps);
       return allHitTop ? 'increase' : 'maintain';
     }
 
     function isPR(ex) {
+      if (state.sessionMode === 'deload') return false;
       const hasLogged = ex.sets.some(v => v !== null && v > 0);
       if (!hasLogged) return false;
       return ex.weight > (ex.bestWeight || 0);
@@ -626,11 +709,12 @@
     }
 
     function getStats(dayKey) {
-      const exs = state.workouts[dayKey].exercises;
+      const exs = getVisibleExercises(dayKey);
       let totalSets = 0, doneSets = 0, readyCount = 0, prCount = 0, doneExercises = 0;
       exs.forEach(ex => {
-        totalSets += ex.targetSets;
-        doneSets += ex.sets.filter(v => v !== null && v > 0).length;
+        const effSets = getEffectiveTargetSets(ex);
+        totalSets += effSets;
+        doneSets += ex.sets.slice(0, effSets).filter(v => v !== null && v > 0).length;
         if (getStatus(ex) === 'increase') readyCount++;
         if (isPR(ex)) prCount++;
         if (ex.completed) doneExercises++;
@@ -798,7 +882,7 @@
     function toggleCompleteExercise(dayKey, exId, e) {
       if (e) e.stopPropagation();
       if (!requireSessionStarted()) return;
-      const exs = state.workouts[dayKey].exercises;
+      const exs = getVisibleExercises(dayKey);
       const idx = exs.findIndex(x => x.id === exId);
       if (idx === -1) return;
       const ex = exs[idx];
@@ -947,6 +1031,277 @@
       render();
     }
 
+    let countdownTimer = null;
+    let countdownStepTimer = null;
+    let countdownRAF = null;
+    let lastLightningStyle = -1;
+
+    function fireCountdownLightning() {
+      const canvas = document.getElementById('countdown-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Pick 1 of 6 distinct lightning styles (never repeating back-to-back)
+      const styles = [0, 1, 2, 3, 4, 5].filter(s => s !== lastLightningStyle);
+      const style = styles[Math.floor(Math.random() * styles.length)];
+      lastLightningStyle = style;
+
+      const pal = ['#fde047', '#fb7185', '#38bdf8', '#c084fc'];
+
+      function makeJaggedLine(x1, y1, x2, y2, segs, jitter) {
+        const pts = [];
+        for (let i = 0; i <= segs; i++) {
+          const t = i / segs;
+          const fade = Math.sin(t * Math.PI);
+          pts.push({
+            x: x1 + (x2 - x1) * t + (Math.random() - 0.5) * jitter * fade,
+            y: y1 + (y2 - y1) * t + (Math.random() - 0.5) * jitter * fade
+          });
+        }
+        return pts;
+      }
+
+      function drawBolt(pts, color, width, alpha = 1) {
+        if (alpha <= 0 || pts.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(1.2, width * 0.35);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const bolts = [];
+      const cx = W / 2;
+      const cy = H / 2 - 20;
+
+      if (style === 0) {
+        // 1. Diagonal Cross-Storm
+        for (let b = 0; b < 6; b++) {
+          const fromLeft = b % 2 === 0;
+          bolts.push({
+            pts: makeJaggedLine(fromLeft ? 0 : W, H * (0.08 + Math.random() * 0.3), fromLeft ? W : 0, H * (0.6 + Math.random() * 0.35), 14, 70),
+            delay: b * 85, dur: 650, color: b % 2 ? '#fb7185' : '#fde047', width: 3.4
+          });
+        }
+      } else if (style === 1) {
+        // 2. Mega Thunder Strike
+        bolts.push({ pts: makeJaggedLine(W * 0.55, 0, cx, cy, 10, 55), delay: 0, dur: 750, color: '#fde047', width: 8 });
+        bolts.push({ pts: makeJaggedLine(cx, cy, W * 0.12, H * 0.88, 8, 38), delay: 60, dur: 650, color: '#fb7185', width: 3.5 });
+        bolts.push({ pts: makeJaggedLine(cx, cy, W * 0.88, H * 0.88, 8, 38), delay: 60, dur: 650, color: '#fb7185', width: 3.5 });
+      } else if (style === 4) {
+        // 5. Chain Lightning Web
+        const nodes = [];
+        for (let i = 0; i < 12; i++) {
+          nodes.push({ x: W * (0.1 + Math.random() * 0.8), y: H * (0.1 + Math.random() * 0.8) });
+        }
+        nodes.forEach((n, i) => {
+          const next = nodes[(i + 1) % nodes.length];
+          const alt = nodes[(i + 3) % nodes.length];
+          bolts.push({ pts: makeJaggedLine(n.x, n.y, next.x, next.y, 7, 30), delay: i * 45, dur: 650, color: pal[i % pal.length], width: 2.6 });
+          if (i % 2 === 0) bolts.push({ pts: makeJaggedLine(n.x, n.y, alt.x, alt.y, 7, 30), delay: i * 45 + 30, dur: 600, color: '#fde047', width: 1.8 });
+        });
+      } else if (style === 5) {
+        // 6. Supercharged Burst
+        const maxR = Math.hypot(W, H) * 0.55;
+        for (let b = 0; b < 10; b++) {
+          const ang = (Math.PI * 2 * b) / 10;
+          bolts.push({ pts: makeJaggedLine(cx, cy, cx + Math.cos(ang) * maxR, cy + Math.sin(ang) * maxR, 10, 52), delay: (b % 2) * 80, dur: 700, color: pal[b % 2], width: 3.2 });
+        }
+      }
+
+      const sparks = [];
+      const sparkCount = style === 5 ? 90 : 50;
+      for (let i = 0; i < sparkCount; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 3 + Math.random() * 9;
+        sparks.push({
+          x: cx, y: cy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+          size: 2 + Math.random() * 3.8, color: pal[i % 2], life: 1, decay: 0.015 + Math.random() * 0.012
+        });
+      }
+
+      const startTime = performance.now();
+      let lastTime = startTime;
+      if (countdownRAF) cancelAnimationFrame(countdownRAF);
+
+      function tick(now) {
+        const dt = Math.min(3, (now - lastTime) / 16.667);
+        lastTime = now;
+        const elapsed = now - startTime;
+        ctx.clearRect(0, 0, W, H);
+
+        if (elapsed < (style === 1 ? 260 : 160)) {
+          ctx.fillStyle = `rgba(250, 204, 21, ${(style === 1 ? 0.35 : 0.2) * (1 - elapsed / (style === 1 ? 260 : 160))})`;
+          ctx.fillRect(0, 0, W, H);
+        }
+
+        if (style === 1 && elapsed < 900) {
+          for (let r = 0; r < 2; r++) {
+            const re = elapsed - r * 140;
+            if (re > 0 && re < 700) {
+              ctx.save();
+              ctx.strokeStyle = r === 0 ? '#fde047' : '#fb7185';
+              ctx.globalAlpha = 1 - re / 700;
+              ctx.lineWidth = 4;
+              ctx.beginPath();
+              ctx.arc(cx, cy, (re / 700) * Math.max(W, H) * 0.55, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.restore();
+            }
+          }
+        }
+
+        if (style === 2) {
+          // 3. Tesla Plasma Ring
+          const alpha = Math.max(0, 1 - elapsed / 1150);
+          const ringR = 92 + Math.sin(elapsed * 0.015) * 8;
+          for (let a = 0; a < 4; a++) {
+            const a1 = elapsed * 0.005 + (a * Math.PI) / 2;
+            const a2 = a1 + Math.PI * 0.42;
+            const pts = [];
+            for (let s = 0; s <= 10; s++) {
+              const ang = a1 + ((a2 - a1) * s) / 10;
+              const jr = ringR + (s === 0 || s === 10 ? 0 : (Math.random() - 0.5) * 26);
+              pts.push({ x: cx + Math.cos(ang) * jr, y: cy + Math.sin(ang) * jr });
+            }
+            drawBolt(pts, a % 2 === 0 ? '#fde047' : '#fb7185', 3.5, alpha);
+          }
+        } else if (style === 3) {
+          // 4. Electric Cyclone
+          const alpha = Math.max(0, 1 - elapsed / 1150);
+          for (let arm = 0; arm < 4; arm++) {
+            const baseAng = elapsed * 0.008 + (arm * Math.PI) / 2;
+            const pts = [];
+            for (let s = 0; s <= 10; s++) {
+              const t = s / 10;
+              const ang = baseAng + t * 2.1;
+              const rad = 24 + t * 155 + (Math.random() - 0.5) * 16;
+              pts.push({ x: cx + Math.cos(ang) * rad, y: cy + Math.sin(ang) * rad });
+            }
+            drawBolt(pts, arm % 2 === 0 ? '#fde047' : '#c084fc', 3.2, alpha);
+          }
+        } else {
+          bolts.forEach(bolt => {
+            const bElapsed = elapsed - bolt.delay;
+            if (bElapsed < 0 || bElapsed > bolt.dur) return;
+            drawBolt(bolt.pts, bolt.color, bolt.width, 1 - bElapsed / bolt.dur);
+          });
+        }
+
+        sparks.forEach(s => {
+          s.x += s.vx * dt;
+          s.y += s.vy * dt;
+          s.life -= s.decay * dt;
+          if (s.life <= 0) return;
+          ctx.globalAlpha = s.life;
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        if (elapsed < 1250) countdownRAF = requestAnimationFrame(tick);
+      }
+      countdownRAF = requestAnimationFrame(tick);
+    }
+
+    function startWorkoutWithCountdown() {
+      const overlay = document.getElementById('start-countdown');
+      const numEl = document.getElementById('countdown-num');
+      const labelEl = document.getElementById('countdown-label');
+      const ringEl = document.getElementById('countdown-ring');
+      const canvasEl = document.getElementById('countdown-canvas');
+      if (!overlay || !numEl || !ringEl) {
+        toggleWorkoutTimer();
+        return;
+      }
+
+      clearTimeout(countdownTimer);
+      clearInterval(countdownStepTimer);
+      if (countdownRAF) cancelAnimationFrame(countdownRAF);
+      if (canvasEl) canvasEl.getContext('2d')?.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+
+      const steps = [
+        { text: '3', label: 'Get ready, Queen Živilė! ⚡' },
+        { text: '2', label: 'Deep breath, crown on 👑' },
+        { text: '1', label: 'Time to shine ✨' },
+        { text: '⚡', label: "LET'S GO, ŽIVILĖ!" }
+      ];
+
+      let idx = 0;
+      function showStep(i) {
+        const s = steps[i];
+        numEl.textContent = s.text;
+        labelEl.textContent = s.label;
+        numEl.classList.remove('animate-pop');
+        void numEl.offsetWidth;
+        numEl.classList.add('animate-pop');
+        if (i === 3) fireCountdownLightning();
+      }
+
+      ringEl.style.transition = 'none';
+      ringEl.style.strokeDashoffset = '0';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          ringEl.style.transition = 'stroke-dashoffset 3000ms linear';
+          ringEl.style.strokeDashoffset = '326.73';
+        });
+      });
+
+      showStep(0);
+      countdownStepTimer = setInterval(() => {
+        idx++;
+        if (idx < steps.length) {
+          showStep(idx);
+        } else {
+          clearInterval(countdownStepTimer);
+        }
+      }, 1000);
+
+      countdownTimer = setTimeout(() => {
+        finishCountdownAndStart();
+      }, 4100);
+    }
+
+    function skipCountdown() {
+      finishCountdownAndStart();
+    }
+
+    function finishCountdownAndStart() {
+      clearTimeout(countdownTimer);
+      clearInterval(countdownStepTimer);
+      if (countdownRAF) cancelAnimationFrame(countdownRAF);
+      countdownRAF = null;
+      const canvasEl = document.getElementById('countdown-canvas');
+      if (canvasEl) canvasEl.getContext('2d')?.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      const overlay = document.getElementById('start-countdown');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      }
+      if (!state.timerRunning) toggleWorkoutTimer();
+    }
+
     function stopAndResetTimer() {
       const totalSec = getElapsedSecondsFloat();
       state.timerRunning = false;
@@ -1088,6 +1443,7 @@
         time: sessionDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
         dayKey,
         title: workout.title,
+        mode: state.sessionMode || 'standard',
         doneSets: stats.doneSets,
         totalSets: stats.totalSets,
         doneExercises: stats.doneExercises,
@@ -1096,10 +1452,10 @@
         durationMin,
         readyCount: stats.readyCount,
         prCount: stats.prCount,
-        exercises: workout.exercises.map(ex => ({
+        exercises: getVisibleExercises(dayKey).map(ex => ({
           name: ex.name,
-          weight: ex.weight,
-          sets: [...ex.sets],
+          weight: state.sessionMode === 'deload' ? getDeloadWeight(ex.weight) : ex.weight,
+          sets: ex.sets.slice(0, getEffectiveTargetSets(ex)),
           unit: ex.unit,
           completed: Boolean(ex.completed),
           status: getStatus(ex),
@@ -1158,18 +1514,24 @@
         }))
       });
 
-      // Roll weights & bests ONLY for exercises that had >= 1 logged set
+      // Roll weights, last reps & bests ONLY when NOT in Deload and ONLY for exercises with >= 1 logged set
       workout.exercises.forEach(ex => {
-        const hasLogged = ex.sets.some(v => v !== null && v > 0);
-        if (hasLogged) {
-          const st = getStatus(ex);
-          if (ex.weight > (ex.bestWeight || 0)) ex.bestWeight = ex.weight;
-          ex.prevWeight = ex.weight;
-          ex.earnedBump = st === 'increase';
+        if (state.sessionMode !== 'deload') {
+          const effSets = getEffectiveTargetSets(ex);
+          const activeSets = ex.sets.slice(0, effSets);
+          const hasLogged = activeSets.some(v => v !== null && v > 0);
+          if (hasLogged) {
+            const st = getStatus(ex);
+            if (ex.weight > (ex.bestWeight || 0)) ex.bestWeight = ex.weight;
+            ex.prevWeight = ex.weight;
+            ex.prevSets = activeSets.concat(Array(Math.max(0, ex.targetSets - effSets)).fill(null));
+            ex.earnedBump = st === 'increase';
+          }
         }
         ex.completed = false;
         ex.sets = ex.sets.map(() => null);
       });
+      if (state.sessionMode === 'quick') state.sessionMode = 'standard';
 
       state.warmupChecks = { cardio: false, mobility: false, ramp: false };
 
@@ -1297,15 +1659,15 @@
           });
         }
       } else {
-        const icons = ['👑', '💎', '🦋', '✨', '🌟'];
-        for (let i = 0; i < 90; i++) {
-          const ang = (Math.PI * 2 * i) / 90;
+        const icons = ['🪷', '👑', '💎', '🥂', '✨', '🌸'];
+        for (let i = 0; i < 110; i++) {
+          const ang = (Math.PI * 2 * i) / 110;
           particles.push({
-            ang, r: 45 + Math.random() * 140, x: W / 2, y: H / 2,
-            vx: Math.cos(ang) * (3 + Math.random() * 7), vy: Math.sin(ang) * (3 + Math.random() * 7),
-            icon: i < 22 ? icons[i % icons.length] : null,
-            color: i % 3 === 0 ? '#facc15' : (i % 3 === 1 ? '#f472b6' : '#c084fc'),
-            size: i < 22 ? 22 : 3.5 + Math.random() * 4, life: 1, decay: 0.0065
+            ang, r: 40 + Math.random() * 155, x: W / 2, y: H / 2,
+            vx: Math.cos(ang) * (3 + Math.random() * 7.5), vy: Math.sin(ang) * (3 + Math.random() * 7.5),
+            icon: i < 28 ? icons[i % icons.length] : null,
+            color: i % 3 === 0 ? '#facc15' : (i % 3 === 1 ? '#f472b6' : '#fde68a'),
+            size: i < 28 ? 22 + (i % 3) * 3 : 3.5 + Math.random() * 4.5, life: 1, decay: 0.0055
           });
         }
       }
@@ -1404,18 +1766,35 @@
       const unwrapEl = document.getElementById('v-unwrap-stage');
       const revealEl = document.getElementById('v-reveal-stage');
       const giftBox = document.getElementById('v-gift-box');
+      const giftLid = document.getElementById('v-gift-lid');
+      const giftGlow = document.getElementById('v-gift-glow');
+      const unwrapText = document.getElementById('v-unwrap-text');
       const emojiEl = document.getElementById('v-emoji');
 
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       clearTimeout(revealTimer);
+      clearTimeout(window.giftLidTimer);
 
       if (!alreadyRevealed) {
         unwrapEl.classList.remove('hidden');
         revealEl.classList.add('hidden');
+        giftLid.classList.remove('animate-lid-open');
+        giftGlow.classList.add('hidden');
+        giftGlow.classList.remove('animate-inner-glow');
+        unwrapText.textContent = 'Untying the ribbon, Živilė...';
+
         giftBox.classList.remove('animate-gift-shake');
         void giftBox.offsetWidth;
         giftBox.classList.add('animate-gift-shake');
+
+        window.giftLidTimer = setTimeout(() => {
+          unwrapText.textContent = 'Opening your box... 🎁';
+          giftLid.classList.add('animate-lid-open');
+          giftGlow.classList.remove('hidden');
+          void giftGlow.offsetWidth;
+          giftGlow.classList.add('animate-inner-glow');
+        }, 950);
 
         revealTimer = setTimeout(() => {
           if (!state.revealedRewardIds.includes(id)) state.revealedRewardIds.push(id);
@@ -1427,7 +1806,7 @@
           emojiEl.classList.add('animate-reward-reveal');
           fireRevealBurst(id);
           render();
-        }, 850);
+        }, 1950);
       } else {
         unwrapEl.classList.add('hidden');
         revealEl.classList.remove('hidden');
@@ -1437,6 +1816,7 @@
 
     function closeVoucher() {
       clearTimeout(revealTimer);
+      clearTimeout(window.giftLidTimer);
       if (revealRAF) cancelAnimationFrame(revealRAF);
       revealRAF = null;
       const canvas = document.getElementById('reveal-canvas');
@@ -2027,6 +2407,9 @@
       if (completed) {
         return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--success)]/15 text-[var(--success)]">✓ Done</span>`;
       }
+      if (status === 'deload') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-500/15 text-sky-500">🛡️ Deload</span>`;
+      }
       return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs text-[var(--muted-foreground)] border border-[var(--border)]">Pending</span>`;
     }
 
@@ -2131,7 +2514,12 @@
       const stepRep = ex.unit === 'sec' ? 5 : 1;
       const started = isSessionStarted();
 
-      const setSummary = ex.sets.map(val => {
+      const effSets = getEffectiveTargetSets(ex);
+      const activeSets = ex.sets.slice(0, effSets);
+      const isDeload = state.sessionMode === 'deload';
+      const deloadWt = getDeloadWeight(ex.weight);
+
+      const setSummary = activeSets.map(val => {
         const hitTop = val !== null && val >= ex.topReps;
         const hasVal = val !== null && val > 0;
         return `<span class="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md text-xs font-mono tabular-nums ${
@@ -2173,7 +2561,7 @@
                     ${renderTypePill(ex.type)}
                   </div>
                   <div class="text-xs text-[var(--muted-foreground)] mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span>${ex.targetSets} × ${ex.targetReps}</span>
+                    <span>${effSets} × ${ex.targetReps}</span>
                     <span>·</span>
                     <span>Rest ${ex.rest}</span>
                     ${safeNote ? `<span>·</span><span class="text-[var(--foreground)]/80 italic [overflow-wrap:anywhere]">${safeNote}</span>` : ''}
@@ -2187,8 +2575,7 @@
 
             <div class="flex items-center justify-between flex-wrap gap-x-2 gap-y-1.5 pt-0.5 pl-8">
               <div class="text-xs font-mono tabular-nums text-[var(--foreground)] font-medium">
-                ${fmtWeight(ex.weight)}
-                ${ex.prevWeight !== null ? `<span class="text-[var(--muted-foreground)] font-normal ml-1">(prev ${ex.prevWeight} kg)</span>` : ''}
+                ${isDeload ? `<span class="text-sky-500 font-bold">${fmtWeight(deloadWt)}</span> <span class="text-[var(--muted-foreground)] font-normal">(normal ${ex.weight} kg)</span>` : `${fmtWeight(ex.weight)} ${ex.prevWeight !== null ? `<span class="text-[var(--muted-foreground)] font-normal ml-1">(prev ${ex.prevWeight} kg)</span>` : ''}`}
               </div>
               <div class="flex items-center gap-1">
                 ${setSummary}
@@ -2235,14 +2622,21 @@
                   <span class="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">Sets (Goal: ${ex.topReps} ${ex.unit})</span>
                   <span class="text-xs text-[var(--muted-foreground)]">${started ? `Tap pill to log / +${stepRep}` : '🔒 Start timer to log'}</span>
                 </div>
+                ${Array.isArray(ex.prevSets) && ex.prevSets.some(v => v !== null && v > 0) ? `
+                  <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold font-mono tabular-nums ${isLower ? 'bg-rose-500/12 text-rose-500 border border-rose-500/25' : 'bg-emerald-400/15 text-emerald-500 border border-emerald-400/30'}">
+                    <span>Last:</span>
+                    <span>${ex.prevSets.map(v => (v !== null && v > 0) ? v : '–').join(' / ')} ${ex.unit}</span>
+                  </div>
+                ` : ''}
 
-                <div class="grid ${ex.targetSets === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2 ${!started ? 'opacity-70' : ''}">
-                  ${ex.sets.map((val, idx) => {
+                <div class="grid ${effSets === 2 ? 'grid-cols-2' : 'grid-cols-3'} gap-2 ${!started ? 'opacity-70' : ''}">
+                  ${activeSets.map((val, idx) => {
                     const hasVal = val !== null && val > 0;
                     const hitTop = hasVal && val >= ex.topReps;
+                    const prevVal = Array.isArray(ex.prevSets) ? ex.prevSets[idx] : null;
                     return `
                       <div class="rounded-xl border ${hitTop ? 'bg-[var(--success)]/12 border-[var(--success)]/40' : hasVal ? 'bg-[var(--card)] border-[var(--primary)]/50' : 'bg-[var(--card)] border-[var(--border)]'} p-2 flex flex-col items-center gap-1.5">
-                        <span class="text-[11px] font-medium text-[var(--muted-foreground)]">Set ${idx + 1}</span>
+                        <span class="text-[11px] font-medium text-[var(--muted-foreground)]">Set ${idx + 1}${prevVal ? ` <span class="font-mono font-semibold ${isLower ? 'text-rose-500/85' : 'text-emerald-500/85'}">(${prevVal})</span>` : ''}</span>
                         <button onclick="tapSet('${dayKey}', '${ex.id}', ${idx})" class="w-full py-1.5 rounded-lg text-lg font-bold font-mono tabular-nums ${hitTop ? 'text-[var(--success)]' : 'text-[var(--foreground)]'}">
                           ${hasVal ? val : '+'}
                         </button>
@@ -2305,11 +2699,6 @@
                   <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.622.622 0 1 1-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 0 1 .207.857zm1.223-2.722a.78.78 0 0 1-1.072.257c-2.687-1.652-6.785-2.131-9.965-1.166a.78.78 0 0 1-.973-.519.781.781 0 0 1 .52-.972c3.632-1.102 8.147-.568 11.234 1.328a.78.78 0 0 1 .256 1.072zm.105-2.835C14.692 8.95 9.375 8.775 6.297 9.71a.937.937 0 1 1-.543-1.794c3.532-1.072 9.404-.865 13.115 1.338a.937.937 0 0 1-.955 1.613z"/>
                 </svg>
               </a>
-              <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer" title="Open Strava" class="w-9 h-9 rounded-xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="#FC4C02" aria-hidden="true">
-                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
-                </svg>
-              </a>
               <button onclick="requestClearSession()" class="px-2.5 h-9 rounded-xl bg-[var(--card)] border border-[var(--border)] text-xs font-medium text-[var(--muted-foreground)]">
                 Clear
               </button>
@@ -2319,7 +2708,7 @@
           <!-- Prominent Start the Exercise / Live Timer Card (Electric Gold + Lightning) -->
           <div id="start-exercise-card" class="rounded-2xl transition-all">
             ${!isSessionStarted() ? `
-              <button onclick="toggleWorkoutTimer()" class="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 text-stone-950 shadow-md flex items-center justify-between gap-3 text-left border border-amber-300/60">
+              <button onclick="startWorkoutWithCountdown()" class="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 text-stone-950 shadow-md flex items-center justify-between gap-3 text-left border border-amber-300/60">
                 <div class="flex items-center gap-3">
                   <span class="w-10 h-10 rounded-xl bg-stone-950/12 flex items-center justify-center text-xl">⚡</span>
                   <div>
@@ -2363,14 +2752,27 @@
             </div>
           </button>
 
-          <!-- Day Switcher (Rose Pink for Lower Day, Light Green for Upper Day) -->
-          <div class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-            <button onclick="setDay('lower')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'lower' ? 'bg-rose-500 text-white shadow-sm' : 'text-[var(--muted-foreground)]'}">
-              Lower Day ${state.nextDay === 'lower' ? '•' : ''}
-            </button>
-            <button onclick="setDay('upper')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'upper' ? 'bg-emerald-400 text-emerald-950 shadow-sm' : 'text-[var(--muted-foreground)]'}">
-              Upper Day ${state.nextDay === 'upper' ? '•' : ''}
-            </button>
+          <!-- Combined Day & Session Mode Card -->
+          <div class="p-1.5 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-1.5">
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="setDay('lower')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'lower' ? 'bg-rose-500 text-white shadow-sm' : 'text-[var(--muted-foreground)]'}">
+                Lower Day ${state.nextDay === 'lower' ? '•' : ''}
+              </button>
+              <button onclick="setDay('upper')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'upper' ? 'bg-emerald-400 text-emerald-950 shadow-sm' : 'text-[var(--muted-foreground)]'}">
+                Upper Day ${state.nextDay === 'upper' ? '•' : ''}
+              </button>
+            </div>
+            <div class="pt-1 border-t border-[var(--border)]/60 grid grid-cols-3 gap-1 text-[11px]">
+              <button onclick="setSessionMode('standard')" class="py-1.5 rounded-lg font-semibold transition-colors ${state.sessionMode === 'standard' ? 'bg-[var(--background)] text-[var(--foreground)] shadow-xs border border-[var(--border)]' : 'text-[var(--muted-foreground)]'}">
+                Standard · 60m
+              </button>
+              <button onclick="setSessionMode('quick')" class="py-1.5 rounded-lg font-semibold transition-colors ${state.sessionMode === 'quick' ? 'bg-amber-400/20 text-amber-500 border border-amber-400/40' : 'text-[var(--muted-foreground)]'}">
+                ⚡ Quick · 45m
+              </button>
+              <button onclick="setSessionMode('deload')" class="py-1.5 rounded-lg font-semibold transition-colors ${state.sessionMode === 'deload' ? 'bg-sky-500/20 text-sky-500 border border-sky-500/40' : 'text-[var(--muted-foreground)]'}">
+                🛡️ Deload · 40m
+              </button>
+            </div>
           </div>
 
           <!-- Session Progress Strip -->
@@ -2394,7 +2796,7 @@
 
         <main class="space-y-5">
           ${workout.zones.map(zone => {
-            const zoneExs = workout.exercises.filter(e => e.zone === zone.id);
+            const zoneExs = getVisibleExercises(dayKey).filter(e => e.zone === zone.id);
             return `
               <section class="space-y-2.5">
                 <div class="flex items-center justify-between px-1">
@@ -2510,6 +2912,8 @@
                       <div class="min-w-0">
                         <div class="flex items-center gap-1.5 flex-wrap">
                           <span class="text-sm font-semibold">${escapeHtml(item.title)}</span>
+                          ${item.mode === 'quick' ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-500">⚡ Quick</span>` : ''}
+                          ${item.mode === 'deload' ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-500">🛡️ Deload</span>` : ''}
                           ${item.partial
                             ? `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--warning)]/15 text-[var(--warning)]">Partial ${exDone}/${exTotal}</span>`
                             : `<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--success)]/15 text-[var(--success)]">✓ Full</span>`
@@ -2548,6 +2952,44 @@
       `;
     }
 
+    function exportBackup() {
+      try {
+        const data = JSON.stringify(state, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = `zivile-gym-backup-${stamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast('Backup downloaded 💾');
+      } catch {
+        showToast('Could not export backup');
+      }
+    }
+
+    function importBackup(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result || ''));
+          state = sanitizeState(parsed);
+          saveState();
+          render();
+          showToast('Backup restored successfully ✓');
+        } catch {
+          showToast('Invalid backup file');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
     function renderRulesView() {
       return `
         <header class="mb-4">
@@ -2574,6 +3016,23 @@
             <div class="text-sm font-semibold">🛡️ Deload &amp; Short-on-Time</div>
             <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Short-on-Time (~45m):</strong> Skip lifts tagged <em>Optional</em> and do 2 sets per Ab exercise.</p>
             <p class="text-[var(--muted-foreground)] leading-relaxed"><strong>Deload (every 6–8 wks):</strong> Drop weights by 10% and perform 1–2 easy working sets.</p>
+          </div>
+
+          <!-- Quick Backup & Restore -->
+          <div class="p-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-3">
+            <div>
+              <div class="text-sm font-semibold">💾 Backup &amp; Restore</div>
+              <p class="text-[var(--muted-foreground)] mt-0.5 leading-relaxed">Save a copy of all workout history, weights, and Crown progress to your iPhone Files / iCloud Drive.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="exportBackup()" class="py-2.5 px-3 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-bold">
+                ⬇ Export Backup
+              </button>
+              <label class="py-2.5 px-3 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-semibold text-center cursor-pointer flex items-center justify-center">
+                ⬆ Restore File
+                <input type="file" accept="application/json,.json" onchange="importBackup(event)" class="hidden" />
+              </label>
+            </div>
           </div>
         </div>
       `;
