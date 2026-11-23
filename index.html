@@ -108,6 +108,51 @@
     .animate-inner-glow { animation: innerGlowRise 950ms ease-out forwards; }
     .animate-gift-shake { animation: giftShake 820ms ease-in-out forwards; }
     .animate-reward-reveal { animation: rewardBurstIn 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+    @keyframes switchSlideFromRight {
+      0% { opacity: 0; transform: translateX(22px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes switchSlideFromLeft {
+      0% { opacity: 0; transform: translateX(-22px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes switchModeMorph {
+      0% { opacity: 0; transform: translateY(10px) scale(0.985); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-switch-right { animation: switchSlideFromRight 340ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .animate-switch-left { animation: switchSlideFromLeft 340ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .animate-switch-mode { animation: switchModeMorph 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .switch-pill {
+      transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), background-color 280ms ease, border-color 280ms ease, box-shadow 280ms ease;
+      will-change: transform;
+    }
+    @keyframes lockIdleSway {
+      0%, 78%, 100% { transform: rotate(0deg) scale(1); }
+      82% { transform: rotate(-10deg) scale(1.06); }
+      86% { transform: rotate(10deg) scale(1.06); }
+      90% { transform: rotate(-6deg) scale(1.03); }
+      94% { transform: rotate(5deg) scale(1.02); }
+    }
+    @keyframes lockTapJiggle {
+      0%, 100% { transform: translateX(0) rotate(0deg) scale(1); }
+      15% { transform: translateX(-4px) rotate(-14deg) scale(1.14); }
+      32% { transform: translateX(4px) rotate(14deg) scale(1.14); }
+      48% { transform: translateX(-3px) rotate(-10deg) scale(1.1); }
+      65% { transform: translateX(3px) rotate(8deg) scale(1.06); }
+      82% { transform: translateX(-1px) rotate(-4deg) scale(1.02); }
+    }
+    .animate-lock-idle {
+      display: inline-block;
+      transform-origin: 50% 25%;
+      animation: lockIdleSway 3.6s ease-in-out infinite;
+    }
+    .animate-lock-jiggle {
+      display: inline-block;
+      transform-origin: 50% 25%;
+      animation: lockTapJiggle 480ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
   </style>
 </head>
 <body class="bg-[var(--background)] text-[var(--foreground)] antialiased">
@@ -671,7 +716,13 @@
       return Math.max(0, Math.round((w * 0.9) / 2.5) * 2.5);
     }
 
+    let daySwitchAnim = null;
+    let modeSwitchAnim = null;
+
     function setSessionMode(mode) {
+      if (state.sessionMode !== mode) {
+        modeSwitchAnim = { from: state.sessionMode || 'standard', to: mode };
+      }
       state.sessionMode = mode;
       const visible = getVisibleExercises(state.activeDay);
       if (state.expandedId && !visible.some(e => e.id === state.expandedId)) {
@@ -726,15 +777,27 @@
 
     // ================= ACTIONS =================
     let shouldAnimateChart = true;
+    const TAB_ORDER = ['workout', 'history', 'crown', 'rules'];
+    let tabSwitchAnim = null;
 
     function setTab(tab) {
+      const changed = state.activeTab !== tab;
+      if (changed) {
+        tabSwitchAnim = { from: state.activeTab, to: tab };
+      }
       if (tab === 'history' && state.activeTab !== 'history') shouldAnimateChart = true;
       state.activeTab = tab;
       saveState();
       render();
+      if (changed) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
     }
 
     function setDay(day) {
+      if (state.activeDay !== day) {
+        daySwitchAnim = { from: state.activeDay, to: day };
+      }
       state.activeDay = day;
       state.expandedId = state.workouts[day].exercises[0]?.id || null;
       saveState();
@@ -1749,7 +1812,30 @@
 
     function openVoucher(id) {
       const r = MYSTERY_REWARDS.find(x => x.id === id);
-      if (!r || getCompletedWeeks() < r.week) return;
+      if (!r) return;
+      if (getCompletedWeeks() < r.week) {
+        const lockEl = document.getElementById(`reward-lock-${r.id}`);
+        const boxEl = document.getElementById(`reward-lock-box-${r.id}`);
+        if (lockEl) {
+          lockEl.classList.remove('animate-lock-jiggle');
+          void lockEl.offsetWidth;
+          lockEl.classList.add('animate-lock-jiggle');
+          clearTimeout(lockEl._idleTimer);
+          lockEl._idleTimer = setTimeout(() => {
+            lockEl.classList.remove('animate-lock-jiggle');
+          }, 520);
+        }
+        if (boxEl) {
+          boxEl.classList.add('ring-2', 'ring-rose-400/60', 'bg-rose-500/15');
+          clearTimeout(boxEl._flashTimer);
+          boxEl._flashTimer = setTimeout(() => {
+            boxEl.classList.remove('ring-2', 'ring-rose-400/60', 'bg-rose-500/15');
+          }, 520);
+        }
+        const remaining = Math.max(1, r.week * 3 - getTotalWorkouts());
+        showToast(`🔒 Locked! ${remaining} more workout${remaining === 1 ? '' : 's'} to unlock (Week ${r.week})`);
+        return;
+      }
       activeVoucherId = id;
       state.revealedRewardIds = state.revealedRewardIds || [];
       state.claimedRewardIds = state.claimedRewardIds || [];
@@ -2690,7 +2776,7 @@
         <header class="mb-4 space-y-3">
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-medium text-[var(--muted-foreground)] truncate">${rot.week} (${rot.slot}) · Next: <span class="text-[var(--primary)] font-semibold">${state.workouts[state.nextDay].title}</span></div>
+              <div class="text-xs font-medium text-[var(--muted-foreground)] truncate">${rot.week} (${rot.slot}) · Next: <span class="${state.nextDay === 'lower' ? 'text-rose-500' : 'text-emerald-500'} font-semibold">${state.workouts[state.nextDay].title}</span></div>
               <h1 class="text-xl font-bold tracking-tight mt-0.5 truncate">Živilė's Gym Tracker 👑</h1>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
@@ -2735,7 +2821,7 @@
           </div>
 
           <!-- Cumulative 3-Workout-Week Royal Progress Strip -->
-          <button onclick="setTab('crown')" class="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-between gap-2 text-left">
+          <button onclick="setTab('crown')" class="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-between gap-2 text-left transition-transform duration-150 active:scale-[0.985]">
             <div class="flex items-center gap-2 min-w-0">
               <span class="text-base">${rank.emoji}</span>
               <div class="truncate">
@@ -2753,30 +2839,63 @@
           </button>
 
           <!-- Combined Day & Session Mode Card -->
-          <div class="p-1.5 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-1.5">
-            <div class="grid grid-cols-2 gap-1.5">
-              <button onclick="setDay('lower')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'lower' ? 'bg-rose-500 text-white shadow-sm' : 'text-[var(--muted-foreground)]'}">
-                Lower Day ${state.nextDay === 'lower' ? '•' : ''}
-              </button>
-              <button onclick="setDay('upper')" class="py-2.5 rounded-xl text-sm font-bold transition-colors ${dayKey === 'upper' ? 'bg-emerald-400 text-emerald-950 shadow-sm' : 'text-[var(--muted-foreground)]'}">
-                Upper Day ${state.nextDay === 'upper' ? '•' : ''}
-              </button>
-            </div>
-            <div class="pt-1 border-t border-[var(--border)]/60 grid grid-cols-3 gap-1 text-[11px]">
-              <button onclick="setSessionMode('standard')" class="py-1.5 rounded-lg font-semibold transition-colors ${state.sessionMode === 'standard' ? 'bg-[var(--background)] text-[var(--foreground)] shadow-xs border border-[var(--border)]' : 'text-[var(--muted-foreground)]'}">
-                Standard · 60m
-              </button>
-              <button onclick="setSessionMode('quick')" class="py-1.5 rounded-lg font-semibold transition-colors ${state.sessionMode === 'quick' ? 'bg-amber-400/20 text-amber-500 border border-amber-400/40' : 'text-[var(--muted-foreground)]'}">
-                ⚡ Quick · 45m
-              </button>
-              <button onclick="setSessionMode('deload')" class="py-1.5 rounded-lg font-semibold transition-colors ${state.sessionMode === 'deload' ? 'bg-sky-500/20 text-sky-500 border border-sky-500/40' : 'text-[var(--muted-foreground)]'}">
-                🛡️ Deload · 40m
-              </button>
-            </div>
-          </div>
+          ${(() => {
+            const initialDay = daySwitchAnim ? daySwitchAnim.from : dayKey;
+            const dayPosMap = { lower: 'translateX(0px)', upper: 'translateX(calc(100% + 6px))' };
+            const dayPillBg = initialDay === 'lower' ? 'bg-rose-500' : 'bg-emerald-400';
+
+            const curMode = state.sessionMode || 'standard';
+            const initialMode = modeSwitchAnim ? modeSwitchAnim.from : curMode;
+            const modePosMap = {
+              standard: 'translateX(0px)',
+              quick: 'translateX(calc(100% + 4px))',
+              deload: 'translateX(calc(200% + 8px))'
+            };
+            const modePillStyleMap = {
+              standard: 'bg-[var(--background)] border-[var(--border)] shadow-xs',
+              quick: 'bg-amber-400/20 border-amber-400/40',
+              deload: 'bg-sky-500/20 border-sky-500/40'
+            };
+
+            return `
+              <div class="p-1.5 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-1.5">
+                <div class="relative grid grid-cols-2 gap-1.5">
+                  <div id="day-switch-pill"
+                       data-target-pos="${dayPosMap[dayKey]}"
+                       data-target-cls="switch-pill absolute top-0 bottom-0 left-0 rounded-xl shadow-sm pointer-events-none ${dayKey === 'lower' ? 'bg-rose-500' : 'bg-emerald-400'}"
+                       class="switch-pill absolute top-0 bottom-0 left-0 rounded-xl shadow-sm pointer-events-none ${dayPillBg}"
+                       style="width: calc(50% - 3px); transform: ${dayPosMap[initialDay]};"></div>
+                  <button onclick="setDay('lower')" class="relative z-10 py-2.5 rounded-xl text-sm font-bold transition-colors duration-200 ${dayKey === 'lower' ? 'text-white' : 'text-[var(--muted-foreground)]'}">
+                    Lower Day ${state.nextDay === 'lower' ? '•' : ''}
+                  </button>
+                  <button onclick="setDay('upper')" class="relative z-10 py-2.5 rounded-xl text-sm font-bold transition-colors duration-200 ${dayKey === 'upper' ? 'text-emerald-950' : 'text-[var(--muted-foreground)]'}">
+                    Upper Day ${state.nextDay === 'upper' ? '•' : ''}
+                  </button>
+                </div>
+                <div class="pt-1 border-t border-[var(--border)]/60">
+                  <div class="relative grid grid-cols-3 gap-1 text-[11px]">
+                    <div id="mode-switch-pill"
+                         data-target-pos="${modePosMap[curMode]}"
+                         data-target-cls="switch-pill absolute top-0 bottom-0 left-0 rounded-lg border pointer-events-none ${modePillStyleMap[curMode]}"
+                         class="switch-pill absolute top-0 bottom-0 left-0 rounded-lg border pointer-events-none ${modePillStyleMap[initialMode]}"
+                         style="width: calc((100% - 8px) / 3); transform: ${modePosMap[initialMode]};"></div>
+                    <button onclick="setSessionMode('standard')" class="relative z-10 py-1.5 rounded-lg font-semibold transition-colors duration-200 ${curMode === 'standard' ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]'}">
+                      Standard · 60m
+                    </button>
+                    <button onclick="setSessionMode('quick')" class="relative z-10 py-1.5 rounded-lg font-semibold transition-colors duration-200 ${curMode === 'quick' ? 'text-amber-500' : 'text-[var(--muted-foreground)]'}">
+                      ⚡ Quick · 45m
+                    </button>
+                    <button onclick="setSessionMode('deload')" class="relative z-10 py-1.5 rounded-lg font-semibold transition-colors duration-200 ${curMode === 'deload' ? 'text-sky-500' : 'text-[var(--muted-foreground)]'}">
+                      🛡️ Deload · 40m
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          })()}
 
           <!-- Session Progress Strip -->
-          <div class="p-3.5 rounded-2xl bg-[var(--card)] border ${dayKey === 'lower' ? 'border-rose-500/30' : 'border-emerald-400/40'} space-y-2 transition-colors">
+          <div class="p-3.5 rounded-2xl bg-[var(--card)] border ${dayKey === 'lower' ? 'border-rose-500/30' : 'border-emerald-400/40'} space-y-2 transition-colors duration-300">
             <div class="flex items-center justify-between text-xs">
               <span class="font-medium text-[var(--foreground)]">${stats.doneExercises}/${stats.totalExercises} exercises done (${stats.pct}%)</span>
               <div class="flex items-center gap-2">
@@ -2790,25 +2909,34 @@
           </div>
         </header>
 
-        <section class="mb-5">
-          ${renderWarmupCard(dayKey)}
-        </section>
+        ${(() => {
+          const contentAnimClass = daySwitchAnim
+            ? (daySwitchAnim.to === 'upper' ? 'animate-switch-right' : 'animate-switch-left')
+            : (modeSwitchAnim ? 'animate-switch-mode' : '');
+          const shouldStagger = Boolean(daySwitchAnim || modeSwitchAnim);
+          return `
+            <section class="mb-5 ${contentAnimClass}">
+              ${renderWarmupCard(dayKey)}
+            </section>
 
-        <main class="space-y-5">
-          ${workout.zones.map(zone => {
-            const zoneExs = getVisibleExercises(dayKey).filter(e => e.zone === zone.id);
-            return `
-              <section class="space-y-2.5">
-                <div class="flex items-center justify-between px-1">
-                  <h2 class="text-xs font-bold uppercase tracking-wider ${dayKey === 'lower' ? 'text-rose-500' : 'text-emerald-500'}">${zone.name}</h2>
-                  <span class="text-xs text-[var(--muted-foreground)]">${zoneExs.length} exercises</span>
-                </div>
-                <div class="space-y-2.5">
-                  ${zoneExs.map(ex => renderExerciseCard(dayKey, ex)).join('')}
-                </div>
-              </section>
-            `;
-          }).join('')}
+            <main class="space-y-5">
+              ${workout.zones.map((zone, zIdx) => {
+                const zoneExs = getVisibleExercises(dayKey).filter(e => e.zone === zone.id);
+                const delayStyle = shouldStagger ? `style="animation-delay: ${(zIdx + 1) * 45}ms"` : '';
+                return `
+                  <section class="space-y-2.5 ${contentAnimClass}" ${delayStyle}>
+                    <div class="flex items-center justify-between px-1">
+                      <h2 class="text-xs font-bold uppercase tracking-wider ${dayKey === 'lower' ? 'text-rose-500' : 'text-emerald-500'}">${zone.name}</h2>
+                      <span class="text-xs text-[var(--muted-foreground)]">${zoneExs.length} exercises</span>
+                    </div>
+                    <div class="space-y-2.5">
+                      ${zoneExs.map(ex => renderExerciseCard(dayKey, ex)).join('')}
+                    </div>
+                  </section>
+                `;
+              }).join('')}
+          `;
+        })()}
 
           <div class="pt-3 pb-4">
             <button onclick="finishWorkout()" class="w-full py-3.5 rounded-2xl ${dayKey === 'lower' ? 'bg-rose-500 text-white' : 'bg-emerald-400 text-emerald-950'} text-sm font-bold shadow-sm">
@@ -3096,24 +3224,24 @@
           </div>
 
           <div class="space-y-2.5">
-            ${MYSTERY_REWARDS.map(r => {
+            ${MYSTERY_REWARDS.map((r, rIdx) => {
               const unlocked = weeks >= r.week;
               const isClaimed = claimed.includes(r.id);
               const isRevealed = revealed.includes(r.id) || isClaimed;
               return `
                 <button
                   onclick="openVoucher('${r.id}')"
-                  class="w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all ${
+                  class="w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all active:scale-[0.985] ${
                     isClaimed
                       ? 'bg-[var(--card)] border-[var(--success)]/40 opacity-75'
                       : unlocked
                         ? 'bg-[var(--card)] border-amber-400/60 shadow-sm'
-                        : 'bg-[var(--card)]/60 border-[var(--border)] opacity-60 cursor-default'
+                        : 'bg-[var(--card)]/60 border-[var(--border)] opacity-70'
                   }"
                 >
                   <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${unlocked ? 'bg-amber-400/20' : 'bg-[var(--background)]'}">
-                      ${isRevealed && unlocked ? r.emoji : unlocked ? '🎁' : '🔒'}
+                    <div id="reward-lock-box-${r.id}" class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 transition-all duration-200 ${unlocked ? 'bg-amber-400/20' : 'bg-[var(--background)]'}">
+                      ${isRevealed && unlocked ? r.emoji : unlocked ? '🎁' : `<span id="reward-lock-${r.id}" class="inline-block">🔒</span>`}
                     </div>
                     <div class="min-w-0">
                       <div class="text-sm font-bold leading-snug ${isClaimed ? 'line-through text-[var(--muted-foreground)]' : ''}">${isRevealed && unlocked ? r.title : r.hiddenLabel}</div>
@@ -3144,18 +3272,26 @@
         { id: 'crown', label: 'Crown', icon: '👑', badge: unclaimed },
         { id: 'rules', label: 'Rules', icon: '📋' }
       ];
+      const curIdx = Math.max(0, TAB_ORDER.indexOf(state.activeTab));
+      const initialIdx = tabSwitchAnim ? Math.max(0, TAB_ORDER.indexOf(tabSwitchAnim.from)) : curIdx;
       return `
         <nav class="fixed bottom-0 left-0 right-0 bg-[var(--card)]/95 backdrop-blur border-t border-[var(--border)] z-40 safe-bottom-nav">
-          <div class="max-w-[430px] mx-auto grid grid-cols-4 pt-2 px-3">
-            ${tabs.map(t => `
-              <button onclick="setTab('${t.id}')" class="relative flex flex-col items-center gap-0.5 py-1 rounded-xl ${state.activeTab === t.id ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted-foreground)]'}">
-                <span class="relative text-base leading-none">
-                  ${t.icon}
-                  ${t.badge ? `<span class="absolute -top-1 -right-2 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-[var(--card)]"></span>` : ''}
-                </span>
-                <span class="text-xs">${t.label}</span>
-              </button>
-            `).join('')}
+          <div class="max-w-[430px] mx-auto pt-1.5 px-3">
+            <div class="relative grid grid-cols-4">
+              <div id="tab-switch-pill"
+                   data-target-pos="translateX(${curIdx * 100}%)"
+                   class="switch-pill absolute top-0 bottom-0 left-0 rounded-xl bg-rose-500/10 border border-rose-500/20 pointer-events-none"
+                   style="width: 25%; transform: translateX(${initialIdx * 100}%);"></div>
+              ${tabs.map(t => `
+                <button onclick="setTab('${t.id}')" class="relative z-10 flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors duration-200 ${state.activeTab === t.id ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted-foreground)]'}">
+                  <span class="relative text-base leading-none transition-transform duration-200 ${state.activeTab === t.id ? 'scale-110' : ''}">
+                    ${t.icon}
+                    ${t.badge ? `<span class="absolute -top-1 -right-2 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-[var(--card)]"></span>` : ''}
+                  </span>
+                  <span class="text-xs">${t.label}</span>
+                </button>
+              `).join('')}
+            </div>
           </div>
         </nav>
       `;
@@ -3169,7 +3305,14 @@
       else if (state.activeTab === 'history') body = renderHistoryView();
       else body = renderRulesView();
 
-      root.innerHTML = body + renderBottomNav();
+      let tabAnimClass = '';
+      if (tabSwitchAnim) {
+        const fromIdx = TAB_ORDER.indexOf(tabSwitchAnim.from);
+        const toIdx = TAB_ORDER.indexOf(tabSwitchAnim.to);
+        tabAnimClass = toIdx >= fromIdx ? 'animate-switch-right' : 'animate-switch-left';
+      }
+
+      root.innerHTML = `<div id="tab-view-container" class="${tabAnimClass}">${body}</div>` + renderBottomNav();
       syncAllDoneBanner();
 
       if (warmupAnimFrom !== null) {
@@ -3184,6 +3327,39 @@
         }
         warmupAnimFrom = null;
         warmupJustFinished = false;
+      }
+
+      if (daySwitchAnim || modeSwitchAnim || tabSwitchAnim) {
+        const animDay = Boolean(daySwitchAnim);
+        const animMode = Boolean(modeSwitchAnim);
+        const animTab = Boolean(tabSwitchAnim);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (animDay) {
+              const dayPill = document.getElementById('day-switch-pill');
+              if (dayPill) {
+                dayPill.className = dayPill.getAttribute('data-target-cls');
+                dayPill.style.transform = dayPill.getAttribute('data-target-pos');
+              }
+            }
+            if (animMode) {
+              const modePill = document.getElementById('mode-switch-pill');
+              if (modePill) {
+                modePill.className = modePill.getAttribute('data-target-cls');
+                modePill.style.transform = modePill.getAttribute('data-target-pos');
+              }
+            }
+            if (animTab) {
+              const tabPill = document.getElementById('tab-switch-pill');
+              if (tabPill) {
+                tabPill.style.transform = tabPill.getAttribute('data-target-pos');
+              }
+            }
+          });
+        });
+        daySwitchAnim = null;
+        modeSwitchAnim = null;
+        tabSwitchAnim = null;
       }
 
       if (state.activeTab === 'history') {
