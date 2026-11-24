@@ -760,8 +760,8 @@
       const effSets = getEffectiveTargetSets(ex);
       const activeSets = ex.sets.slice(0, effSets);
       const logged = activeSets.filter(v => v !== null && v > 0);
-      if (logged.length === 0) return 'pending';
-      if (logged.length < effSets) return 'in-progress';
+      if (logged.length === 0) return ex.completed ? 'done' : 'pending';
+      if (logged.length < effSets) return ex.completed ? 'done' : 'in-progress';
       const allHitTop = activeSets.every(v => v !== null && v >= ex.topReps);
       return allHitTop ? 'increase' : 'maintain';
     }
